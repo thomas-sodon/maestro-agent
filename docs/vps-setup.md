@@ -4,6 +4,8 @@ Complete setup guide for deploying Maestro on a Hetzner Ubuntu VPS with SSL via 
 
 > **Archived — no active deployment.** Maestro is no longer developed or deployed. This page records how the production host was set up while the experiment ran; read present-tense descriptions of the host as historical.
 
+> **Known limitation.** This layout is not hardened. The loop container bind-mounts the checkout read-write as the host `maestro` user, and that user is in the `docker` group, which is root-equivalent on the host. The backup cron, the nginx config symlink and the deploy agent all run or load files from that same agent-writable checkout, so the agent can change what they execute. A hardened setup runs them from an operator-owned clone under a separate deploy user (see [deployment.md §Deploy clone](deployment.md#deploy-clone-host-trust-root--first-act)).
+
 **Target domain:** `maestro.example.com`
 **Traffic flow:** Client → Cloudflare (public SSL) → nginx on VPS (origin cert) → localhost:8420 (dashboard container)
 
@@ -28,7 +30,6 @@ Complete setup guide for deploying Maestro on a Hetzner Ubuntu VPS with SSL via 
 ```bash
 # Create the maestro user (if not already present)
 adduser maestro
-usermod -aG sudo maestro
 ```
 
 ## 2. Docker
@@ -60,7 +61,8 @@ Verify: `docker compose version`
 # Switch to maestro user
 su - maestro
 
-# Clone the repo
+# Clone the repo. Every path below assumes this checkout, /home/maestro/maestro
+# (the maestro user's ~/maestro, which is also scripts/deploy-agent.sh's default).
 git clone https://github.com/thomas-sodon/maestro-agent.git ~/maestro
 cd ~/maestro
 
@@ -130,7 +132,7 @@ apt-get install -y nginx
 rm -f /etc/nginx/sites-enabled/default
 
 # Symlink the maestro config from the repo (stays up to date with git pull)
-ln -sf /opt/maestro/nginx/maestro.conf /etc/nginx/sites-enabled/maestro.conf
+ln -sf /home/maestro/maestro/nginx/maestro.conf /etc/nginx/sites-enabled/maestro.conf
 
 # Test and start
 nginx -t
@@ -193,7 +195,8 @@ Production deploys ran from a host-local systemd agent, not a GitHub Actions run
 Install and enable the agent's units (full runbook: [deploy/systemd/README.md](../deploy/systemd/README.md#the-deploy-agent-executable-units)):
 
 ```bash
-# From the repo root, as the deploy user. Adjust User=/WorkingDirectory=/ExecStart=
+# From the repo root, as root or a sudo-capable admin account (not the maestro
+# user, which has no sudo rights). Adjust User=/WorkingDirectory=/ExecStart=
 # in the .service for your deploy user and repo-clone path before copying.
 sudo cp deploy/systemd/deploy-agent/maestro-deploy-agent.service /etc/systemd/system/
 sudo cp deploy/systemd/deploy-agent/maestro-deploy-agent.timer   /etc/systemd/system/
@@ -214,19 +217,20 @@ prerequisite:
 
 ```bash
 # As maestro user
-mkdir -p /opt/maestro/logs
+mkdir -p /home/maestro/maestro/logs
 crontab -e
 ```
 
-Add this line for hourly backups (the inline `mkdir -p` keeps the cron
+Add this line for hourly backups (the `cd` makes the script's default
+`data/` resolve inside the checkout; the inline `mkdir -p` keeps the cron
 entry self-bootstrapping if the directory is ever pruned, e.g. by a
 tmpfiles cleanup or repo wipe):
 
 ```
-0 * * * * mkdir -p /opt/maestro/logs && /opt/maestro/scripts/backup-maestro.sh >> /opt/maestro/logs/backup.log 2>&1
+0 * * * * cd /home/maestro/maestro && mkdir -p /home/maestro/maestro/logs && scripts/backup-maestro.sh >> /home/maestro/maestro/logs/backup.log 2>&1
 ```
 
-The redirect target `/opt/maestro/logs/` is owned by the `maestro` user, so the cron-spawned shell can append to it; do not point this at `/var/log/`, which is root-owned and not writable by the `maestro` user that runs the cron job.
+The redirect target `/home/maestro/maestro/logs/` is owned by the `maestro` user, so the cron-spawned shell can append to it; do not point this at `/var/log/`, which is root-owned and not writable by the `maestro` user that runs the cron job.
 
 If using Hetzner Storage Box for offsite backups, set `HETZNER_STORAGE_BOX` in `.env` and ensure SSH key access is configured.
 
@@ -272,7 +276,7 @@ curl https://maestro.example.com/health
 - nginx: `journalctl -u nginx` or `/var/log/nginx/error.log`
 - Dashboard: `docker compose logs dashboard`
 - Loop: `docker compose logs loop`
-- Backup: `/opt/maestro/logs/backup.log`
+- Backup: `/home/maestro/maestro/logs/backup.log`
 - Deploy: GitHub Actions workflow run logs
 
 ## Updating Nginx Config

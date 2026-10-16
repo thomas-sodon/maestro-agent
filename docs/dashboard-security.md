@@ -83,7 +83,7 @@ Lives in `maestro/dashboard/security_headers.py`. Gated by `[dashboard] security
 
 `script-src 'self'` is strict (blocks the real XSS vector). `style-src 'self' 'unsafe-inline'` is a deliberate compromise to keep existing inline `style="..."` attributes and `index.js`'s `.style.cssText = …` toast helper working.
 
-HSTS stays at nginx (`nginx/maestro.conf:32`) — not duplicated at the app layer.
+HSTS stays at nginx (the `Strict-Transport-Security` `add_header` in the 443 `server` block of `nginx/maestro.conf`) — not duplicated at the app layer.
 
 ## Static Asset Extraction
 

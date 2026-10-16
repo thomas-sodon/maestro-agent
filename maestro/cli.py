@@ -4383,7 +4383,7 @@ def cmd_self_model(args: argparse.Namespace, config: Config) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="maestro",
-        description="Maestro — self-sustaining autonomous agent",
+        description="Maestro — archived autonomous engineering agent",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     sub = parser.add_subparsers(dest="command")

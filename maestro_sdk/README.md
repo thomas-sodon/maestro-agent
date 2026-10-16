@@ -1,14 +1,16 @@
 # maestro_sdk
 
-A Python SDK that drives the `claude` Claude Code CLI **as if it were a human user**: paced keystrokes, realistic terminal allocation, post-response heartbeat, strictly sequential flow.
+A Python SDK that drives the interactive `claude` (Claude Code) TUI through a real pseudo-terminal at a configurable, paced keystroke cadence, for TUI/UX testing and CLI automation: paced keystrokes, a sized terminal, a post-response heartbeat, strictly sequential flow.
 
-> **Not to be confused with `maestro/sdk.py`.** That module is Maestro's wrapper around the official `claude-agent-sdk` and bulk-writes inputs at machine speed. This package (`maestro_sdk`) is a separate, standalone library that drives the `claude` CLI through a pty at human cadence. The data-contract shapes intentionally mirror `maestro/sdk.py` so a future adapter is straightforward, but no code is shared and the two are not interchangeable.
+> **Not to be confused with `maestro/sdk.py`.** That module is Maestro's wrapper around the official `claude-agent-sdk` and bulk-writes inputs at machine speed. This package (`maestro_sdk`) is a separate, standalone library that drives the `claude` CLI through a pty at a paced keystroke cadence. The data-contract shapes intentionally mirror `maestro/sdk.py` so a future adapter is straightforward, but no code is shared and the two are not interchangeable.
 
-This is not "another way to call the Claude API". It is a way to exercise the CLI at human cadence — useful when:
+This is not "another way to call the Claude API". It is a way to exercise the interactive CLI at a paced cadence — useful when:
 
 - You want to surface TUI/UX issues that bulk-write SDKs hide.
-- You're building automation on a `claude` CLI + OAuth login with no `ANTHROPIC_API_KEY`.
-- Downstream rate-limiters / UI state machines assume between-keystroke time.
+- You're scripting or testing the interactive CLI on your own login, subject to Anthropic's terms (unattended use belongs on an `ANTHROPIC_API_KEY`).
+- You need to reproduce timing-sensitive TUI behaviour (repaints, approval modals, idle prompts).
+
+Pacing does not raise or get around any usage limit: the CLI's own limits still apply, and rate-limit notices surface as `RateLimitError`. Use is subject to Anthropic's terms.
 
 ## Status
 
@@ -22,7 +24,7 @@ from maestro_sdk import Cadence
 c = Cadence(seed=42)
 c.delay_for("h", prev=None)        # seconds to wait before pressing 'h'
 c.heartbeat_for(answer_chars=350)  # seconds to wait after a 350-char response
-c.winsize()                        # (cols, rows) — realistic, jittered
+c.winsize()                        # (cols, rows) — varied per session to exercise layout
 ```
 
 The `Cadence` object owns every timing constant in the package. There is no `sleep(...)` call anywhere else — if you want different rhythm, pass a different `Cadence`.
@@ -142,7 +144,7 @@ later approval-policy proposal so the trust chain stays explicit.
 ## AsyncClient — putting it together
 
 `AsyncClient` composes the runner, screen, parser, and approval handler into one
-operation: type a prompt at human cadence, watch the CLI answer, hand back a
+operation: type a prompt at the configured cadence, watch the CLI answer, hand back a
 `QueryResult`. A query is a strict sequence — spawn, type the prompt + Enter,
 stream the reply, then wait `Cadence.heartbeat_for(answer_length)` before
 returning — and each phase is timed in `QueryResult.timing` so a caller can prove
@@ -211,8 +213,4 @@ installed `claude` CLI) over an actual pty, and the heavier spawn-and-wait
 tests carry a relaxed `@pytest.mark.timeout` so a cold interpreter start on a
 loaded CI runner does not trip the default per-test budget.
 
-Integration tests against the real `claude` CLI are opt-in:
-
-```bash
-RUN_CLAUDE_TESTS=1 python3.14 -m pytest tests/test_integration.py -v
-```
+No test runs against the real `claude` CLI yet.

@@ -1,7 +1,7 @@
 [project]
 name = "maestro_sdk"
 version = "0.0.1"
-description = "A Claude Code CLI-driving SDK that talks to claude as if it were a human user (paced keystrokes, realistic terminal, heartbeat)."
+description = "Drive the interactive Claude Code (claude) TUI through a real pty at a configurable, paced keystroke cadence, for TUI/UX testing and CLI automation."
 requires-python = ">=3.14"
 dependencies = []
 

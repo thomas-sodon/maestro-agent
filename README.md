@@ -1,12 +1,40 @@
 # Maestro
 
-> **Archived experiment.** Maestro is no longer developed. The code, docs and proposals are kept as a record of what was tried and what was learned.
+> **Archived experiment.** Maestro is no longer developed. The code, docs and proposals are kept as a record of what was tried and what was learned. Issue and PR numbers (`#NNNN`) cited in code, docs and proposals refer to the original private development repository, whose history was squashed for this release, so they do not resolve here.
 
 ## What Maestro is
 
-Maestro is an autonomous agent built on the Claude Agent SDK. It runs an **act → reflect → evolve** loop: it executes tasks, reflects on its own record, and proposes changes to its own code. Every self-change goes through human approval (dashboard or Telegram) before it lands. It keeps a journal of its own inner thought and a self-model that is injected into every call.
+Maestro is an autonomous agent built on the Claude Agent SDK. It runs an **act → reflect → dream → evolve** loop: it executes tasks and tends its own pull requests, reflects on its own record, dreams (a zero-cost housekeeping pass that archives old state and refreshes the cost report), and proposes changes to its own code. Every self-change goes through human approval (dashboard or Telegram) before it lands. It keeps a journal of its own inner thought and a self-model that is injected into every call.
 
-For the full architecture and its invariants, see [CLAUDE.md](CLAUDE.md); the module reference is [docs/modules.md](docs/modules.md).
+**At a glance:** about 141,000 lines of Python in `maestro/` across 162 modules, 523 test modules under `tests/`, a 100% coverage gate in CI, and 35 merged evolution plans against 190 rejected and 655 obsolete.
+
+For the full architecture, start with [docs/loop-lifecycle.md](docs/loop-lifecycle.md) and [docs/self-evolution.md](docs/self-evolution.md); [CLAUDE.md](CLAUDE.md) is the dense, agent-facing list of invariants, and the module reference is [docs/modules.md](docs/modules.md).
+
+Docs and prompts call the human operator "Thomas": the repository owner, [@thomas-sodon](https://github.com/thomas-sodon). The coined vocabulary (owed-act, stand-down, merge-ready and the rest) is defined in the glossary [docs/lexicon.md](docs/lexicon.md).
+
+## How it works
+
+Each loop iteration runs the phases of `_LOOP_PHASES` (`maestro/loop/iteration.py`) in order, persisting its position after each phase so a restart resumes where it stopped. Several phases are cadence- or flag-gated and skip most iterations. A plan that `evolve` proposes waits for a human decision before `implement_approved_plans` builds it, and every Bash call in task execution and implementation passes the action gate first.
+
+```mermaid
+flowchart TD
+    ensure["ensure_main_branch"] --> contrib["check_contributions"] --> msgs["process_messages"]
+    msgs --> tend["tend_evolution_prs"] --> attend["attend"] --> contemplate["contemplate"]
+    contemplate --> respond["respond_to_messages"] --> implement["implement_approved_plans"]
+    implement --> merged["check_merged_plans"] --> artifacts["review_artifacts"]
+    artifacts --> publish["execute_approved_publications"] --> rejected["process_rejected_plans"]
+    rejected --> gen["generate_task"] --> run["run_task"] --> evolve["evolve"]
+    evolve --> audit["audit_self_model"] --> curate["curate_pending_plans"] --> dream["dream"]
+    dream -->|next iteration| ensure
+
+    evolve -->|plan: pending_review| human{{"Human approval<br/>(dashboard or Telegram)"}}
+    human -->|approved| implement
+    human -->|rejected| rejected
+
+    gate[["tool_gating PreToolUse action gate:<br/>no PR merge/ready/open bypass,<br/>no foreign push or outward act"]]
+    run -. every Bash call .-> gate
+    implement -. every Bash call .-> gate
+```
 
 ## What we learned
 
@@ -20,27 +48,32 @@ For the full architecture and its invariants, see [CLAUDE.md](CLAUDE.md); the mo
 - **Chokepoints** — merge truth (`is_pr_settled`), CI truth (`ci_diagnosis`) and the owed act (`pr_owed_act.classify_pr_owed_act`) each have one owner, so no scope re-derives them privately.
 - **Structural AST guards** — `tests/structural_guards.py` and the tests around it enforce sole owners, retired concepts and banned patterns at CI time.
 - **Taint fencing** — `maestro/taint.py` is the only way external text enters a prompt, as a fenced `UntrustedText`.
+- **Consciousness vocabulary as a measurement experiment** — the self-model, the "conscious workspace" and `consciousness-report` are an experiment in measuring conscious-*access* indicators (what information is selected, broadcast and acted on), not a claim that Maestro is conscious; [docs/conscious-access.md](docs/conscious-access.md) fixes the claim levels and says that phenomenal consciousness is never claimed.
 
 ## Getting Started
 
 ### Prerequisites
 
 - Python 3.14+
-- A Claude API key **or** an OAuth token from a Claude Max/Pro subscription
+- A Claude API key (recommended) **or** an OAuth token from a Claude Max/Pro subscription
+- A GitHub token (`GITHUB_TOKEN`); the startup secret check requires one
 
 ### Installation
 
 ```bash
-git clone <repo-url> && cd maestro
-# Base install. Add the email extra — ".[dev,email]" — to use MAESTRO_EMAIL_* or run the full test suite.
-pip install -e ".[dev]"
+git clone https://github.com/thomas-sodon/maestro-agent.git && cd maestro-agent
+# maestro_sdk/ and maestro_review/ are separate distributions excluded from maestro's own package, and the runtime contract requires both.
+pip install -e "maestro_sdk/" -e "maestro_review/"
+pip install -e ".[dev,email]" -c constraints.txt
 ```
+
+Run `maestro` from the repository root: it reads `./maestro.toml` plus the `maestro.{env}.toml` overlay that `MAESTRO_ENV` selects, and writes its state to `./data/`.
 
 ### Authentication
 
-Maestro needs one of two credential types. Set the chosen variable in your `.env` file or shell environment.
+Maestro needs one of two credential types. Set the chosen variable in your `.env` file or shell environment. Use an API key to run the autonomous loop; the OAuth token option is for personal, interactive use on the operator's own subscription, subject to Anthropic's terms.
 
-**Option 1 — API key (pay-per-token)**
+**Option 1 — API key (pay-per-token, recommended for the loop)**
 
 1. Create an account at [console.anthropic.com](https://console.anthropic.com)
 2. Generate an API key
@@ -49,7 +82,7 @@ Maestro needs one of two credential types. Set the chosen variable in your `.env
    ANTHROPIC_API_KEY=sk-ant-api03-...
    ```
 
-**Option 2 — OAuth token (Max/Pro subscription, personal use)**
+**Option 2 — OAuth token (Max/Pro subscription, personal interactive use)**
 
 1. Install the Claude CLI:
    ```bash
@@ -103,8 +136,8 @@ See `maestro.toml` for all settings (timeouts, loop intervals, limits). Per-envi
 
 ## Packages
 
-- [`maestro_sdk/`](maestro_sdk/README.md) — a CLI-driving SDK with human-paced keystrokes.
-- [`maestro_review/`](maestro_review/CLAUDE.md) — the standalone AI code-review package.
+- [`maestro_sdk/`](maestro_sdk/README.md) — a CLI-driving SDK that runs the interactive `claude` TUI through a real pty, for TUI/UX testing and CLI automation.
+- [`maestro_review/`](maestro_review/README.md) — the standalone AI code-review package.
 
 Extracted as standalone repositories:
 
@@ -114,7 +147,7 @@ Extracted as standalone repositories:
 
 ## Web Dashboard
 
-Start it with `maestro serve`, then open `http://localhost:8420`.
+Start it with `maestro serve`, then open `http://localhost:8420`. `maestro serve` runs the same startup secret check as the loop, so it needs a Claude credential and `GITHUB_TOKEN` set; placeholder values are enough to browse an empty state.
 
 From the dashboard you can:
 
@@ -128,6 +161,8 @@ From the dashboard you can:
 ## Docker Deployment
 
 Maestro runs in Docker with two services: `loop` (autonomous agent) and `dashboard` (web UI on port 8420). Credentials are read from a `.env` file.
+
+> **Point it at your own fork first.** `docker-compose.yml` defaults to `MAESTRO_ENV=production`, which loads `maestro.production.toml`: the original operator's overlay, targeting `thomas-sodon/maestro-agent`. Either set `[github] repo` and `reviewer` in that overlay to your own fork and account, or run on the base config only. Outside Docker, leaving `MAESTRO_ENV` unset or empty (`MAESTRO_ENV=`) does that. Compose's `${MAESTRO_ENV:-production}` treats an empty value as unset, so under Docker pass a name that has no overlay file instead, for example `MAESTRO_ENV=local docker compose up -d`.
 
 ```bash
 docker compose build
@@ -143,11 +178,15 @@ For full deployment details (volumes, backup, restore), see [docs/deployment.md]
 ## Development
 
 ```bash
-# Install in dev mode (the email extra keeps the full test suite resolvable)
-pip install -e ".[dev,email]"
+# Install in dev mode: siblings first, then maestro (the email extra keeps the full test suite resolvable)
+pip install -e "maestro_sdk/" -e "maestro_review/"
+pip install -e ".[dev,email]" -c constraints.txt
 
-# Run all quality gates
-ruff check maestro/ tests/ && mypy maestro/ && pytest tests/ -v
+# Run the quality gates exactly as CI does
+ruff check maestro/ tests/ scripts/ && mypy maestro/ scripts/ && pytest tests/ -v
+
+# Optional: the aggregate gate, including the sibling packages' gates
+maestro gate-check --full
 
 # Browser tests (dashboard UI in headless Chromium)
 pip install -e ".[dev,browser]" && playwright install chromium
@@ -158,7 +197,7 @@ All code must pass lint (ruff), type checking (mypy), tests (pytest), and mainta
 
 ### AI Code Review
 
-This repository's CI does not run an AI code review. The standalone `maestro_review` package (see [`maestro_review/CLAUDE.md`](maestro_review/CLAUDE.md)) can post inline pull-request comments identifying bugs and providing fix plans or code suggestions, and an operator can add a workflow that runs it on pull requests; such a workflow needs `CLAUDE_CODE_OAUTH_TOKEN` as a repository secret. `maestro-review` exits 1 when it freshly produces any comment or hits an infrastructure failure (API errors, SDK crashes), and exits 0 otherwise.
+This repository's CI does not run an AI code review. The standalone `maestro_review` package (see [`maestro_review/README.md`](maestro_review/README.md)) can post inline pull-request comments identifying bugs and providing fix plans or code suggestions, and an operator can add a workflow that runs it on pull requests; such a workflow needs `ANTHROPIC_API_KEY` (preferred for unattended CI) or `CLAUDE_CODE_OAUTH_TOKEN` as a repository secret. `maestro-review` exits 1 when it freshly produces any comment or hits an infrastructure failure (API errors, SDK crashes), and exits 0 otherwise.
 
 Install and run independently:
 

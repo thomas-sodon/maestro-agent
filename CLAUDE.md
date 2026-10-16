@@ -14,7 +14,7 @@ Quick-start: [README.md](README.md); CLI usage: [docs/cli.md](docs/cli.md); modu
 - **Surfaces** — `maestro/{dashboard/,notifications/,email,email_tools,telegram_tools,plan_decision,messaging,issues,crash}.py`.
 - **Infra** — `maestro/{config,toml_config,migration,fileutil,search,types,cost_tracking,task_cost_gate,remediation_tracker,escalation_bridge,contributions,diagnostics,health_check,stats,audit_checks,gate_check,red_root,deed_ledger,logs,cli}.py`.
 - **Code review** — separate `maestro_review/` package; see [`maestro_review/CLAUDE.md`](maestro_review/CLAUDE.md).
-- **Human-paced CLI SDK** — separate `maestro_sdk/` package (CLI-driving SDK with paced keystrokes, distinct from `maestro/sdk.py`); see [`maestro_sdk/README.md`](maestro_sdk/README.md).
+- **Paced CLI SDK** — separate `maestro_sdk/` package (CLI-driving SDK with paced keystrokes, distinct from `maestro/sdk.py`); see [`maestro_sdk/README.md`](maestro_sdk/README.md).
 
 ### Objective
 

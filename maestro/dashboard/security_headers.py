@@ -1,8 +1,8 @@
 """Security-headers middleware applied to every dashboard response.
 
 Defence-in-depth: nginx already sets HSTS, ``X-Content-Type-Options``,
-``X-Frame-Options``, ``Referrer-Policy``, and ``X-XSS-Protection`` at the
-edge (see ``nginx/maestro.conf``), but a direct request to
+``X-Frame-Options``, and ``Referrer-Policy`` at the edge (see
+``nginx/maestro.conf``), but a direct request to
 ``127.0.0.1:8420`` bypasses that.  This middleware ensures the same
 posture regardless of how the dashboard is reached — and adds CSP +
 ``Permissions-Policy``, which nginx does not set.

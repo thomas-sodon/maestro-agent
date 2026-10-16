@@ -1,5 +1,7 @@
 # Context7 canary delta (proposal 084, Phase 2)
 
+> **Figures redacted.** Dollar figures tied to the operator's billing were removed and are shown as `$—` / `€—`.
+
 How to measure whether the Context7 library-docs MCP server actually lowers
 burn rate, by comparing the **with-Context7** window against the Phase 1
 [burn-rate baseline](burn-rate-baseline.md). This is the A/B step that either
@@ -61,8 +63,8 @@ from pathlib import Path
 from datetime import datetime, UTC
 from maestro.cost_tracking import generate_burn_baseline
 print(generate_burn_baseline(
-    Path('/opt/maestro/data/usage.jsonl'),
-    Path('/opt/maestro/data/task_history.jsonl'),
+    Path('/home/maestro/maestro/data/usage.jsonl'),
+    Path('/home/maestro/maestro/data/task_history.jsonl'),
     since=datetime(2026, 6, 21, tzinfo=UTC)))"
 ```
 

@@ -1,11 +1,12 @@
 """Cadence policy — the heart of :mod:`maestro_sdk`.
 
-Everything that makes this SDK *human-paced* lives here:
+Every pacing decision the SDK makes lives here:
 
 * per-key typing delay, drawn from a clamped Gaussian with word/sentence
   pauses and an occasional "thinking pause";
 * post-response heartbeat scaled to answer length;
-* pty winsize, randomised per session so the CLI cannot detect a fixed shape.
+* pty winsize, jittered per session so layout handling is exercised across
+  a range of terminal sizes.
 
 There is no ``sleep`` call anywhere else in the package — every wait in the
 package routes through ``delay_for`` or ``heartbeat_for``. Cadence is frozen

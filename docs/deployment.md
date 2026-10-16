@@ -405,9 +405,10 @@ maestro loop --max-iters 1
 - Optionally rsyncs to a Hetzner Storage Box if `HETZNER_STORAGE_BOX` is set
 
 ```bash
-# Cron setup (on the host, as the user that owns the repo clone).
-# Runs from the deploy directory so that the default MEMORY_DIR=$(pwd)/data resolves correctly.
-0 * * * * cd /path/to/maestro && ./scripts/backup-maestro.sh >> /var/log/maestro-backup.log 2>&1
+# Cron setup (on the host, as the user that owns the repo clone; see vps-setup.md §9).
+# Runs from the checkout so that the default MEMORY_DIR=$(pwd)/data resolves correctly,
+# and logs inside it: /var/log/ is root-owned and not writable by that user.
+0 * * * * cd /home/maestro/maestro && mkdir -p /home/maestro/maestro/logs && scripts/backup-maestro.sh >> /home/maestro/maestro/logs/backup.log 2>&1
 ```
 
 ## Quarantining Pre-Fence Test Telemetry

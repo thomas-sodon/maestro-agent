@@ -31,7 +31,7 @@ STORAGE_BOX="${HETZNER_STORAGE_BOX:-}"
 # redirect aborts with ENOENT and this script body — including this very
 # mkdir — never runs. The inline `mkdir -p &&` in §9 is therefore
 # load-bearing for the first-cron-firing path and must not be removed.
-mkdir -p "${MAESTRO_LOG_DIR:-/opt/maestro/logs}" 2>/dev/null || true
+mkdir -p "${MAESTRO_LOG_DIR:-$HOME/maestro/logs}" 2>/dev/null || true
 
 # Notify on failure via Telegram (if configured), then fall back to stderr.
 notify_failure() {
