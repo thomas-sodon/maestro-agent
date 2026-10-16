@@ -1,0 +1,278 @@
+# Runtime contract (proposal 141).
+#
+# The single checked-in statement of what the production container must
+# provide for Maestro's code to run. `maestro/runtime_contract.py` loads it,
+# observes the live environment through the existing readers, and
+# `maestro runtime-contract` prints one verdict per entry — so
+# `docker compose run --rm loop runtime-contract` reports what the real image
+# is missing rather than an incident in the live loop finding it first.
+#
+# Entry fields:
+#   kind          — one of:
+#                   binary            an executable resolved on PATH.
+#                   toolbelt          a shell tool the agent's prompts assume
+#                                     (resolved on PATH, like `binary`).
+#                   distribution      a first-party sibling that must resolve
+#                                     as a real distribution, not a PEP 420
+#                                     namespace shadow. Needs `submodule`.
+#                   writable_path     a path the runtime user must be able to
+#                                     write. Needs `path`; `{memory_dir}`
+#                                     expands from the resolved config and
+#                                     `{home}` from the runtime user's passwd
+#                                     home. Optional `used_by` lists the
+#                                     `maestro/` modules that depend on the
+#                                     home directory through it.
+#                   readable_fact     a kernel/host reading that must be
+#                                     obtainable. Needs `reader`, one of
+#                                     cgroup_cpu_quota, cgroup_memory_limit,
+#                                     meminfo, docker_root_free, load_average.
+#                                     Optional `paths` lists the absolute
+#                                     kernel/host paths its reader spells.
+#                   identity          the runtime uid/gid/home. Needs `uid`,
+#                                     `gid`, `home`.
+#                   launcher_package  a package an MCP launcher fetches at
+#                                     start. Needs `launcher`. Reported
+#                                     `unverified` unless `--network`
+#                                     resolves it against its launcher's
+#                                     registry.
+#   name          — what the entry is about (binary name, package, path...).
+#   required_when — a token or a list of tokens (any-of):
+#                   always | config:<bool Config field> | provider:<name> |
+#                   env:<MAESTRO_ENV value>.
+#   scope         — optional, defaults to `container`. `host` entries are
+#                   reported `host-only` when evaluated in-container.
+#   provision     — a human hint naming how to satisfy the entry.
+#
+# `tests/test_runtime_contract_owner.py` requires every executable `maestro/`
+# spells statically in one of its detected argv shapes to appear here as a
+# `binary` or `toolbelt` entry; argv selected out of a data table (the gate
+# tuples) stays out of its reach and is declared by hand. The same guard
+# requires every `/sys/fs/cgroup`, `/proc` or `/var/lib/docker` path literal
+# `maestro/` spells to appear in some `readable_fact`'s `paths`, and every
+# module using the home directory (`Path.home()`, a `~` literal expanded) to
+# appear in some `writable_path`'s `used_by` — and fails on a declaration the
+# code no longer uses. Paths that arrive through config stay out of its view.
+
+# ---- Binaries ----
+
+[[entry]]
+kind = "binary"
+name = "git"
+required_when = "always"
+provision = "apt-get install git"
+
+[[entry]]
+kind = "binary"
+name = "gh"
+required_when = "always"
+provision = "install the GitHub CLI (cli.github.com)"
+
+[[entry]]
+kind = "binary"
+name = "npx"
+required_when = "config:context7_mcp_enabled"
+provision = "install Node.js (ships npx)"
+
+[[entry]]
+kind = "binary"
+name = "node"
+required_when = "config:context7_mcp_enabled"
+provision = "install Node.js"
+
+[[entry]]
+kind = "binary"
+name = "uvx"
+required_when = "config:serena_mcp_enabled"
+provision = "pip install uv (ships uvx)"
+
+[[entry]]
+kind = "binary"
+name = "claude"
+required_when = "provider:cli_paced"
+provision = "npm install -g @anthropic-ai/claude-code"
+
+[[entry]]
+kind = "binary"
+name = "tail"
+required_when = "always"
+provision = "coreutils (ships with the base image)"
+
+[[entry]]
+kind = "binary"
+name = "ruff"
+required_when = "always"
+provision = "pip install -e '.[dev]' (the quality gates run in-loop)"
+
+[[entry]]
+kind = "binary"
+name = "mypy"
+required_when = "always"
+provision = "pip install -e '.[dev]' (the quality gates run in-loop)"
+
+[[entry]]
+kind = "binary"
+name = "pytest"
+required_when = "always"
+provision = "pip install -e '.[dev]' (the quality gates run in-loop)"
+
+# ---- First-party sibling distributions ----
+
+[[entry]]
+kind = "distribution"
+name = "maestro_sdk"
+submodule = "maestro_sdk.mcp_config"
+required_when = "always"
+provision = 'pip install -e "maestro_sdk/"'
+
+[[entry]]
+kind = "distribution"
+name = "maestro_review"
+submodule = "maestro_review.review"
+required_when = "always"
+provision = 'pip install -e "maestro_review/"'
+
+# ---- Writable paths ----
+
+[[entry]]
+kind = "writable_path"
+name = "memory_dir"
+path = "{memory_dir}"
+required_when = "always"
+provision = "chown the data bind-mount to the runtime user"
+
+[[entry]]
+kind = "writable_path"
+name = "memory_dir_logs"
+path = "{memory_dir}/logs"
+required_when = "always"
+provision = "chown the data bind-mount to the runtime user"
+
+[[entry]]
+kind = "writable_path"
+name = "claude_json"
+path = "{home}/.claude.json"
+required_when = "env:production"
+provision = "scripts/docker-entrypoint.sh seeds it; check the home dir owner"
+
+[[entry]]
+kind = "writable_path"
+name = "maestro_home"
+path = "{home}/.maestro"
+used_by = ["maestro/config.py"]
+required_when = "always"
+provision = "the runtime user's home must be writable (memory_dir / gate_slots defaults)"
+
+[[entry]]
+kind = "writable_path"
+name = "claude_projects"
+path = "{home}/.claude/projects"
+used_by = ["maestro/providers/cli_paced.py"]
+required_when = "provider:cli_paced"
+provision = "the claude CLI writes transcript sidecars here; check the home dir owner"
+
+# ---- Readable facts ----
+
+[[entry]]
+kind = "readable_fact"
+name = "cgroup_cpu_quota"
+reader = "cgroup_cpu_quota"
+paths = [
+    "/proc/self/cgroup",
+    "/sys/fs/cgroup",
+    "/sys/fs/cgroup/cpu.max",
+    "/sys/fs/cgroup/cpu/cpu.cfs_quota_us",
+    "/sys/fs/cgroup/cpu/cpu.cfs_period_us",
+]
+required_when = "env:production"
+provision = "set a CPU limit (deploy.resources.limits.cpus) in docker-compose.yml"
+
+[[entry]]
+kind = "readable_fact"
+name = "cgroup_memory_limit"
+reader = "cgroup_memory_limit"
+paths = [
+    "/proc/self/cgroup",
+    "/sys/fs/cgroup",
+    "/sys/fs/cgroup/memory.max",
+    "/sys/fs/cgroup/memory.current",
+    "/sys/fs/cgroup/memory/memory.limit_in_bytes",
+    "/sys/fs/cgroup/memory/memory.usage_in_bytes",
+]
+required_when = "env:production"
+provision = "set a memory limit (deploy.resources.limits.memory) in docker-compose.yml"
+
+[[entry]]
+kind = "readable_fact"
+name = "docker_root_free"
+reader = "docker_root_free"
+paths = ["/var/lib/docker"]
+required_when = "env:production"
+provision = "mount the workspace so its filesystem can be stat'ed"
+
+[[entry]]
+kind = "readable_fact"
+name = "meminfo"
+reader = "meminfo"
+paths = ["/proc/meminfo"]
+required_when = "always"
+provision = "/proc/meminfo must be readable"
+
+[[entry]]
+kind = "readable_fact"
+name = "load_average"
+reader = "load_average"
+required_when = "always"
+provision = "/proc/loadavg must be readable"
+
+# ---- Runtime identity ----
+
+[[entry]]
+kind = "identity"
+name = "maestro"
+uid = 1002
+gid = 1002
+home = "/home/maestro"
+required_when = "env:production"
+provision = "run as the image's maestro user (UID/GID 1002)"
+
+# ---- Shell toolbelt ----
+
+[[entry]]
+kind = "toolbelt"
+name = "ps"
+required_when = "env:production"
+provision = "apt-get install procps"
+
+[[entry]]
+kind = "toolbelt"
+name = "pgrep"
+required_when = "env:production"
+provision = "apt-get install procps"
+
+[[entry]]
+kind = "toolbelt"
+name = "free"
+required_when = "env:production"
+provision = "apt-get install procps"
+
+[[entry]]
+kind = "toolbelt"
+name = "jq"
+required_when = "env:production"
+provision = "apt-get install jq"
+
+# ---- MCP launcher packages ----
+
+[[entry]]
+kind = "launcher_package"
+name = "@upstash/context7-mcp"
+launcher = "npx"
+required_when = "config:context7_mcp_enabled"
+provision = "reachable npm registry"
+
+[[entry]]
+kind = "launcher_package"
+name = "serena-agent==1.5.3"
+launcher = "uvx"
+required_when = "config:serena_mcp_enabled"
+provision = "reachable PyPI"

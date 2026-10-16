@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maestro — Login</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/login.css">
+</head>
+<body>
+<div class="login-card">
+  <h1>Maestro</h1>
+  <div class="subtitle">Dashboard Authentication</div>
+  <form method="POST" action="/login">
+    <label for="token">Access Token</label>
+    <input type="password" id="token" name="token" autocomplete="current-password" autofocus required>
+    <button type="submit">Sign In</button>
+  </form>
+  <div class="error" id="error-msg">Invalid token. Please try again.</div>
+</div>
+<script src="/static/login.js"></script>
+</body>
+</html>

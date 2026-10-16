@@ -1,0 +1,73 @@
+/* Single source of the dashboard design tokens.
+ *
+ * Linked first by every page (index.html, public.html, login.html) so the
+ * token layer loads before each page-specific stylesheet and the page CSS
+ * overrides on top of it. Previously the palette was triplicated in a private
+ * :root block in each of index.css / public.css / login.css; those copies had
+ * already drifted in coverage (login.css defined only --danger; public.css
+ * added --surface-2 / --text-mute / --accent-soft) and would have drifted in
+ * value the first time one file was edited without the others. This file holds
+ * the union so a palette change happens in exactly one place.
+ *
+ * The palette values below are byte-identical to the former per-page :root
+ * blocks — moving them here is a pure consolidation with no visual change. The
+ * page-local --orb-* animation custom properties on public.css's .phase-orb are
+ * a separate family and deliberately stay in public.css.
+ */
+:root {
+  /* Palette (union across the three pages) */
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface-2: #16161f;
+  --border: #1e1e2e;
+  --text: #e0e0e8;
+  --text-dim: #8888a0;
+  --text-mute: #5a5a72;
+  --accent: #7c6ff0;
+  --accent-glow: rgba(124,111,240,0.15);
+  --accent-soft: rgba(124,111,240,0.08);
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+
+  /* Typography faces. --font-ui is the sans stack for headings, labels,
+   * navigation, prose, and controls; --font-data reserves the existing
+   * monospace face for the data it is good at (numbers, logs, transcripts,
+   * tables). Both are system stacks, so the surface loads no webfont, nothing
+   * blocks first paint, and there is no font-swap layout shift. */
+  --font-data: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Additive scale tokens — seeded for later presentation work. Nothing
+   * references these yet, so they change nothing now. */
+
+  /* Text-size scale (rem) — seeded for the later type-hierarchy increment. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.85rem;
+  --text-base: 1rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+
+  /* Dense spacing scale (4px step). */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+
+  /* Radius scale — matches the literals already used for inputs (6px),
+   * the login card (12px), and the nav pills / account link (14px). */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+
+  /* Elevation scale — conservative box-shadow tokens the later steps tune. */
+  --elevation-1: 0 1px 2px rgba(0,0,0,0.3);
+  --elevation-2: 0 2px 8px rgba(0,0,0,0.35);
+  --elevation-3: 0 8px 24px rgba(0,0,0,0.4);
+}

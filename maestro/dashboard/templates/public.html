@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maestro</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/public.css">
+</head>
+<body>
+
+<header class="topbar">
+  <span class="wordmark">maestro</span>
+  <a class="account-link" href="/account">Account</a>
+</header>
+
+<div class="hero">
+  <div class="hero-content">
+    <div class="phase-orb pattern-drift" id="phase-orb" data-phase="idle" aria-hidden="true">
+      <span class="orb-core"></span>
+      <span class="orb-ring"></span>
+      <span class="orb-particles"></span>
+    </div>
+    <div class="phase-caption" id="phase-caption">Idle</div>
+    <h1>Maestro</h1>
+    <p class="hero-subtitle" id="hero-subtitle">A self-improving engineering agent.</p>
+    <div class="status-line">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">Waking up…</span>
+    </div>
+    <div class="uptime" id="uptime"></div>
+  </div>
+</div>
+
+<main>
+  <section id="identity-section">
+    <div class="section-title">I am…</div>
+    <div id="identity-list"></div>
+  </section>
+
+  <section class="self-portrait">
+    <div class="portrait-group capabilities" id="capabilities-group">
+      <h4>What I can do</h4>
+      <ul id="capabilities-list"></ul>
+    </div>
+    <div class="portrait-group limitations" id="limitations-group">
+      <h4>What I can't do</h4>
+      <ul id="limitations-list"></ul>
+    </div>
+  </section>
+
+  <section id="values-section">
+    <div class="section-title">Values</div>
+    <ul class="values-list" id="values-list"></ul>
+  </section>
+
+  <section class="journey-strip">
+    <div class="section-title">Journey so far</div>
+    <div class="ratio-line">
+      <span class="ratio-number" id="stat-evolutions">—</span>
+      <span class="ratio-label">improvements shipped</span>
+    </div>
+    <div class="journey-since" id="awakened-since"></div>
+  </section>
+
+  <section id="partner-section">
+    <div class="section-title">Human partner</div>
+    <p class="partner-line">Thomas Sodon</p>
+  </section>
+</main>
+
+<footer>MAESTRO · SELF-IMPROVING AUTONOMOUS AGENT</footer>
+
+<script src="/static/public.js"></script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+# NOTE: `maestro shutdown` and `maestro kill` use PID files and only work within
+# the same process namespace. In Docker, use `docker compose stop` (graceful)
+# or `docker compose down` (remove containers).
+services:
+  loop:
+    build:
+      context: .
+      target: production
+    container_name: maestro-loop
+    command: ["loop"]
+    init: true
+    env_file: .env
+    environment:
+      - MAESTRO_WORKSPACE=/workspace
+      - MAESTRO_ENV=${MAESTRO_ENV:-production}
+    volumes:
+      - .:/workspace
+      - /dev/null:/workspace/.env:ro    # hide secrets file from container
+    working_dir: /workspace
+    # Deliberately no auto-restart: on crash, stay down so Thomas can triage
+    # before the workspace/data/lifecycle state is mutated by a fresh startup.
+    # This is unconditional — the loop also stays down across host reboots and
+    # Docker daemon restarts (not just crashes) and must be started manually
+    # (docker compose up -d / start loop, or scripts/safe-deploy.sh).
+    # Dashboard keeps `unless-stopped` below — it has no agent state.
+    restart: "no"
+    stop_signal: SIGTERM
+    # Must outlast the longest in-flight phase (contemplate / evolve / run_task
+    # can run 5-10+ min). The loop signals shutdown at SIGTERM and breaks at the
+    # next phase boundary — the SDK call in flight is allowed to complete.
+    # Container exits as soon as run_loop returns, so the effective wait is
+    # "until the current phase finishes," not the full window. 30 min is a
+    # bounded ceiling so a truly stuck loop still gets SIGKILLed eventually.
+    stop_grace_period: 1800s
+    # The in-process gate runs the full pytest suite; the container default
+    # soft nofile=1024 left no headroom, so match CI's fd budget (#4213).
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    deploy:
+      resources:
+        # Sized for the production host: at 2.0/2G the loop peaked at
+        # 1.67 GiB with CPU pinned at quota, flooring the in-loop gate lease to
+        # one pytest worker. Mirrored in deploy/placement.toml.
+        limits:
+          cpus: '4.0'
+          memory: 6G
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,time; exit(0 if time.time()-os.stat('/workspace/data/loop.heartbeat').st_mtime<600 else 1)"]
+      interval: 60s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
+  dashboard:
+    build:
+      context: .
+      target: production
+    container_name: maestro-dashboard
+    command: ["serve"]
+    init: true
+    env_file: .env
+    environment:
+      - MAESTRO_WORKSPACE=/workspace
+      - MAESTRO_ENV=${MAESTRO_ENV:-production}
+    volumes:
+      - .:/workspace:ro                # dashboard only reads code
+      - ./data:/workspace/data         # writable bolt-on so dashboard can persist plan status/messages
+      - /dev/null:/workspace/.env:ro   # hide secrets file from container
+    working_dir: /workspace
+    ports:
+      - "127.0.0.1:${MAESTRO_DASHBOARD_PORT:-8420}:${MAESTRO_DASHBOARD_PORT:-8420}"
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${MAESTRO_DASHBOARD_PORT:-8420}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

@@ -1,0 +1,43 @@
+name: "Set up Python"
+description: >-
+  Set up the single Python interpreter every CI job builds against, plus the uv
+  installer every job's dependency step uses. This is the sole place the
+  interpreter action, its version and the uv version are pinned, so a runtime
+  bump or a version move is one edit here rather than six copies drifting apart.
+  Deliberately takes no inputs: an overridable version would let a caller
+  re-introduce the duplication this composite exists to remove, and all six jobs
+  build against the same interpreter.
+runs:
+  using: "composite"
+  steps:
+    - id: python
+      uses: actions/setup-python@v7
+      with:
+        python-version: "3.14"
+
+    # `uv pip install` is a drop-in for `pip install` that resolves and installs
+    # faster. setup-uv publishes no floating major tag, so the action is pinned
+    # to its exact release; its GitHub Actions cache is keyed on the
+    # dependency manifests.
+    - uses: astral-sh/setup-uv@v10.2.0
+      with:
+        version: "0.12.19"
+        enable-cache: true
+        cache-dependency-glob: |
+          pyproject.toml
+          constraints.txt
+          maestro_review/pyproject.toml
+          maestro_sdk/pyproject.toml
+
+    # Install into the setup-python interpreter above (no venv), exactly where
+    # `pip install` used to put packages, so every later `ruff` / `mypy` /
+    # `pytest` / `playwright` step finds them on PATH unchanged. Copy mode
+    # because the uv cache and the interpreter may live on different
+    # filesystems, where uv's default hardlinks would fall back with a warning.
+    - shell: bash
+      run: |
+        {
+          echo "UV_SYSTEM_PYTHON=1"
+          echo "UV_PYTHON=${{ steps.python.outputs.python-path }}"
+          echo "UV_LINK_MODE=copy"
+        } >> "$GITHUB_ENV"

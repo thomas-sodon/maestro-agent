@@ -1,0 +1,21 @@
+# Pinned production runtime dependencies — the single lever consumed by the
+# Docker clean-room build, the loop container's entrypoint sync, and CI, so all
+# three `pip install` paths resolve the same versions of the direct production
+# dependencies declared in pyproject.toml's [project.dependencies].
+# Bumping a pin is one reviewable edit that moves all three together; without
+# this file an unbounded specifier lets each path land a different version,
+# producing a silent green-CI / red-deploy split.
+#
+# Scope: this pins only the direct [project.dependencies] packages. Their
+# transitive closure is left unpinned and can still resolve differently across
+# paths; a full transitive lockfile, plus the extras and dev tooling, are
+# intentionally out of scope (see proposal 121).
+claude-agent-sdk==0.2.165
+mcp==2.3.0
+fastapi==0.143.0
+uvicorn==0.54.0
+python-telegram-bot==22.8
+jinja2==3.1.6
+python-dotenv==1.2.4
+jsonschema==4.26.0
+pydantic-settings==2.15.0

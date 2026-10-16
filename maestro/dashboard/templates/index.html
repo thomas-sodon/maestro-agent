@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maestro — Account</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/index.css">
+</head>
+<body>
+
+<div class="sticky-header">
+  <h1>Maestro</h1>
+  <p class="subtitle">Autonomous agent</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-title">Status</div>
+      <div id="status"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Metrics</div>
+      <div id="metrics"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+    </div>
+  </div>
+
+  <nav class="nav-bar" id="nav-bar">
+    <a class="nav-link" href="#section-diagnostics" data-nav="diagnostics">Diagnostics</a>
+    <a class="nav-link" href="#section-identity" data-nav="identity">Identity</a>
+    <a class="nav-link" href="#section-plans" data-nav="plans">Plans<span class="nav-badge" id="nav-badge-plans" style="display:none">0</span></a>
+    <a class="nav-link" href="#section-publications" data-nav="publications">Publications<span class="nav-badge" id="nav-badge-publications" style="display:none">0</span></a>
+    <a class="nav-link" href="#section-journal" data-nav="journal">Journal</a>
+    <a class="nav-link" href="#section-tasks" data-nav="tasks">Tasks</a>
+    <a class="nav-link" href="#section-messages" data-nav="messages">Messages</a>
+    <a class="nav-link" href="#section-budget" data-nav="budget">Budget</a>
+    <a class="nav-link" href="#section-versions" data-nav="versions">Versions</a>
+    <a class="nav-link" href="#section-sessions" data-nav="sessions">Sessions</a>
+    <a class="nav-link" href="#section-logs" data-nav="logs">Logs<span class="nav-badge danger" id="nav-badge-logs" style="display:none">!</span></a>
+  </nav>
+
+  <!-- Sign-out control (proposal 122). A bare POST to the CSRF-exempt /logout
+       route (see _CSRF_EXEMPT_PATHS in auth.py), so it carries no CSRF header.
+       Hidden by default; index.js reveals it only when the JS-readable
+       maestro_csrf cookie is present (auth enabled) — so it never appears, and
+       never 404s to a missing /logout route, in the no-auth local-dev config. -->
+  <form class="sign-out" method="POST" action="/logout" hidden>
+    <button type="submit" class="sign-out-btn">Sign out</button>
+  </form>
+</div>
+
+<section class="tab-panel" data-tab="diagnostics">
+  <h2 id="section-diagnostics">Diagnostics</h2>
+  <div class="card" id="diagnostics"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+</section>
+
+<section class="tab-panel" data-tab="identity">
+  <h2 id="section-identity">Identity</h2>
+  <div class="card" id="identity"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+</section>
+
+<section class="tab-panel" data-tab="plans">
+  <h2 id="section-plans">Pending Evolution Plans</h2>
+  <div class="card" id="pending-plans"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+
+  <h2>All Evolution Plans</h2>
+  <div class="card">
+    <div class="filter-bar">
+      <button class="log-filter-btn active" data-plan-status="">All</button>
+      <button class="log-filter-btn" data-plan-status="approved">Approved</button>
+      <button class="log-filter-btn" data-plan-status="rejected">Rejected</button>
+      <button class="log-filter-btn" data-plan-status="implemented">Implemented</button>
+      <button class="log-filter-btn" data-plan-status="merged">Merged</button>
+      <button class="log-filter-btn" data-plan-status="failed">Failed</button>
+      <button class="log-filter-btn" data-plan-status="obsolete">Obsolete</button>
+      <input type="text" id="plan-search" placeholder="Search plans...">
+    </div>
+    <div id="all-plans"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+  </div>
+</section>
+
+<section class="tab-panel" data-tab="publications">
+  <h2 id="section-publications">Pending Publication Proposals</h2>
+  <div class="card" id="pending-publications"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+
+  <h2>All Publication Proposals</h2>
+  <div class="card">
+    <div class="filter-bar">
+      <button class="log-filter-btn active" data-publication-status="">All</button>
+      <button class="log-filter-btn" data-publication-status="approved">Approved</button>
+      <button class="log-filter-btn" data-publication-status="rejected">Rejected</button>
+      <button class="log-filter-btn" data-publication-status="executing">Executing</button>
+      <button class="log-filter-btn" data-publication-status="published">Published</button>
+      <button class="log-filter-btn" data-publication-status="failed">Failed</button>
+    </div>
+    <div id="all-publications"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+  </div>
+</section>
+
+<section class="tab-panel" data-tab="journal">
+  <h2 id="section-journal">Journal</h2>
+  <div class="card">
+    <div class="filter-bar" aria-label="Journal source">
+      <button class="log-filter-btn active" data-journal-source="thoughts" title="Inner thoughts the model wrote — what the planning prompts read">Thoughts</button>
+      <button class="log-filter-btn" data-journal-source="events" title="Operational records — deploys, merges, lifecycle, audit findings, plan bookkeeping; never read into a prompt">Events</button>
+    </div>
+    <div class="filter-bar">
+      <button class="log-filter-btn active" data-journal-type="">All</button>
+      <button class="log-filter-btn" data-journal-type="reflection">Reflection</button>
+      <button class="log-filter-btn" data-journal-type="realization">Realization</button>
+      <button class="log-filter-btn" data-journal-type="question">Question</button>
+      <button class="log-filter-btn" data-journal-type="milestone">Milestone</button>
+      <button class="log-filter-btn" data-journal-type="evolution_note">Evolution</button>
+      <button class="log-filter-btn" data-journal-type="audit_observation">Audit</button>
+      <button class="log-filter-btn" data-journal-type="contribution">Contribution</button>
+      <input type="text" id="journal-search" placeholder="Search journal...">
+    </div>
+    <div id="journal"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+    <button class="load-more-btn" id="journal-load-more">Load more</button>
+  </div>
+</section>
+
+<section class="tab-panel" data-tab="tasks">
+  <h2 id="section-tasks">Task History</h2>
+  <div class="card">
+    <div class="filter-bar">
+      <button class="log-filter-btn active" data-task-outcome="">All</button>
+      <button class="log-filter-btn" data-task-outcome="success">Success</button>
+      <button class="log-filter-btn" data-task-outcome="partial">Partial</button>
+      <button class="log-filter-btn" data-task-outcome="failure">Failure</button>
+      <input type="text" id="task-search" placeholder="Search tasks...">
+    </div>
+    <div id="tasks"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+    <button class="load-more-btn" id="tasks-load-more">Load more</button>
+  </div>
+</section>
+
+<section class="tab-panel" data-tab="messages">
+  <h2 id="section-messages">Messages</h2>
+  <div class="card">
+    <div class="messages-list" id="messages"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+    <div class="compose-reply" id="compose-reply" hidden>Replying to question <code id="compose-reply-id"></code> <button type="button" id="compose-reply-clear">Cancel</button></div>
+    <form class="compose-form" id="compose-form">
+      <textarea id="compose-content" placeholder="Send a message to Maestro..."></textarea>
+      <button type="submit" id="compose-send">Send</button>
+    </form>
+  </div>
+</section>
+
+<section class="tab-panel" data-tab="budget">
+  <h2 id="section-budget">Budget</h2>
+  <div class="card">
+    <div class="budget-window-bar">
+      <button class="log-filter-btn active" data-budget-window="1">1h</button>
+      <button class="log-filter-btn" data-budget-window="24">24h</button>
+      <button class="log-filter-btn" data-budget-window="168">7d</button>
+    </div>
+    <div id="budget-summary" class="budget-summary"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+
+    <div id="budget-group-chart"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+
+    <div class="card-title" style="margin-top:16px">By phase group</div>
+    <div id="budget-by-group"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+
+    <div class="card-title" style="margin-top:16px">By caller</div>
+    <div id="budget-by-caller"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+
+  </div>
+</section>
+
+<section class="tab-panel" data-tab="versions">
+  <h2 id="section-versions">Version archive</h2>
+  <div class="card">
+    <div id="versions"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+  </div>
+</section>
+
+<section class="tab-panel" data-tab="sessions">
+  <h2 id="section-sessions">Sessions</h2>
+  <div class="card">
+    <p class="sdk-session-intro">Maestro's stream of consciousness — every SDK
+      session transcript, newest first. Following tails the live session.</p>
+    <div class="log-filters">
+      <button class="log-filter-btn active" id="btn-sdk-follow" aria-pressed="true">Following</button>
+      <span class="sdk-session-status" id="sdk-session-status"></span>
+    </div>
+    <div class="sdk-session-filters visible" id="sdk-session-filters"></div>
+    <div class="sdk-session-split">
+      <div class="sdk-sessions-panel visible" id="sdk-sessions-panel"></div>
+      <div class="sdk-session-content visible typed" id="sdk-session-content"><div class="empty">Select a session to view its transcript.</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="tab-panel" data-tab="logs">
+  <h2 id="section-logs">Logs</h2>
+  <div class="card">
+    <div class="log-filters">
+      <button class="log-filter-btn active" data-log-source="">All</button>
+      <button class="log-filter-btn" data-log-source="app">App</button>
+      <button class="log-filter-btn" data-log-source="sdk">SDK</button>
+      <div class="log-source-sep"></div>
+      <button class="log-filter-btn active" data-log-level="">All Levels</button>
+      <button class="log-filter-btn" data-log-level="DEBUG">Debug</button>
+      <button class="log-filter-btn" data-log-level="INFO">Info</button>
+      <button class="log-filter-btn" data-log-level="WARNING">Warning</button>
+      <button class="log-filter-btn" data-log-level="ERROR">Error</button>
+      <div class="log-source-sep"></div>
+      <input type="text" id="log-search" placeholder="Search logs...">
+    </div>
+    <div class="log-container" id="logs"><div class="skeleton" aria-busy="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+  </div>
+</section>
+
+<p class="refresh-note">Auto-refreshes every 10 seconds</p>
+
+<!-- Persistent live region: a toast appended here announces through the
+     role="status" / aria-live="polite" pair for assistive technology. The
+     region must pre-exist in the DOM for reliable announcement. -->
+<div id="toast-region" role="status" aria-live="polite" aria-atomic="false" class="toast-region"></div>
+
+<!-- Single reusable confirmation dialog. Native <dialog> carries the
+     accessibility lifting: implicit role="dialog", focus trap, Escape-to-cancel,
+     focus restoration to the trigger, and a ::backdrop. openConfirmDialog() in
+     index.js populates the title/message, toggles the reason textarea, and reads
+     the confirm flag on the close event. -->
+<dialog id="confirm-dialog" aria-labelledby="confirm-dialog-title">
+  <h2 id="confirm-dialog-title" class="confirm-dialog-title"></h2>
+  <p id="confirm-dialog-message" class="confirm-dialog-message"></p>
+  <textarea id="confirm-dialog-reason" class="confirm-dialog-reason" rows="3" placeholder="Reason (optional)" hidden></textarea>
+  <div class="confirm-dialog-actions">
+    <button type="button" id="confirm-dialog-cancel" class="btn confirm-dialog-cancel">Cancel</button>
+    <button type="button" id="confirm-dialog-confirm" class="btn btn-approve">Confirm</button>
+  </div>
+</dialog>
+
+<script src="/static/index.js"></script>
+</body>
+</html>

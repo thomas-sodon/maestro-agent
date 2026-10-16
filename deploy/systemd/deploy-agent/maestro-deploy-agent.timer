@@ -1,0 +1,24 @@
+# Timer scheduling the Maestro host-local deploy agent.
+#
+# Installed out-of-band (see deploy/systemd/README.md). Enabling this timer is
+# the live cutover step and is deliberately left to the operator: merging the
+# repo does not activate the agent. The agent is a cheap no-op when the host is
+# already at the newest production deployment's sha, and its flock single-flight
+# guard makes an activation that overlaps a still-running deploy a no-op too, so
+# a short polling interval is safe.
+
+[Unit]
+Description=Schedule the Maestro host-local pull-based deploy agent
+
+[Timer]
+# First poll shortly after boot, then poll every couple of minutes after the
+# previous activation finishes. No Persistent=/catch-up is set: with a monotonic
+# OnBootSec/OnUnitActiveSec schedule (not OnCalendar) systemd's Persistent= is a
+# no-op, and no replay of a missed activation is wanted — the next OnBootSec poll
+# after the host returns reconciles to the newest production target on its own.
+OnBootSec=2min
+OnUnitActiveSec=2min
+Unit=maestro-deploy-agent.service
+
+[Install]
+WantedBy=timers.target

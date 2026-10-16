@@ -1,0 +1,15 @@
+# Maestro Development Configuration — component test overrides
+# Active when MAESTRO_ENV=development is set.
+# Values here override maestro.toml defaults.
+
+[timeouts]
+git = 10                # Mock git is fast
+implement = 30          # No real push, just mock
+pr_creation = 15        # Mock gh is fast
+gh = 10                 # Mock gh is fast
+selfcheck = 60          # Quality gates are mocked
+
+[loop]
+interval = 5            # Fast iteration in tests
+
+

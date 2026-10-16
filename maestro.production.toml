@@ -1,0 +1,385 @@
+# Maestro Production Configuration — Hetzner VPS overrides
+# Active when MAESTRO_ENV=production is set.
+# Values here override maestro.toml defaults.
+
+[github]
+repo = "thomas-sodon/maestro-agent"
+reviewer = "thomas-sodon"
+
+[dashboard]
+# Nginx is the sole trusted hop in production and sets X-Real-IP to
+# $remote_addr, so the rate-limit key reads the real client IP.
+trust_forwarded_for = true
+
+[timeouts]
+git = 60                # More generous for remote operations
+implement = 180         # Longer timeout for git push during evolution
+pr_creation = 90        # More time for PR creation on remote
+
+[loop]
+interval = 120          # 2 minutes between iterations (reduce API usage)
+max_loop_budget_usd_per_hour = 10.00  # Self-regulating throttle: stretches inter-iteration sleep once limit is reached
+budget_rate_window_hours = 5.0       # Rolling window for burn-rate computation
+peak_throttle_enabled = false         # Skip heavy-LLM phases during 5-11 AM Pacific on weekdays (window inherited from maestro.toml)
+# Production pause of contemplation in MAESTRO_ENV=production only:
+# contemplate_every is set to 0 on its existing line below, since TOML forbids
+# a duplicate key in [loop]. Evolve is gated on gap-issue fuel (proposal 155
+# step 4), so a tick without a trusted gap makes no SDK call. Reversion:
+# restore contemplate_every = 5.
+curate_enabled = true
+curate_every = 5                     # Unpaused: proposal 155 step 6 skips unchanged plans, so cadence curation re-grades only a changed plan
+# Proposal 113 Phase D — retired-posture canary. Flips the self-model
+# instrument switches to their target posture in MAESTRO_ENV=production only;
+# base maestro.toml keeps the behavior-preserving defaults so every other
+# environment stays unchanged. Observation window and graduation criteria live
+# in the "Self-model instrument retirement" subsection of docs/self-evolution.md.
+# Reversion: delete this line.
+contemplate_every = 0  # Paused by the block above (revert: 5)
+# Proposal 116 — plan-mill closure canary ([loop] slice; [audit] slice below).
+# Flips the task↔evolution decoupling levers to their target posture in
+# MAESTRO_ENV=production only; base maestro.toml keeps the behavior-preserving
+# defaults so every other environment stays unchanged. Observation window and
+# graduation criteria live in the "Plan-mill closure canary" subsection of
+# docs/self-evolution.md. The additive levers (generation_admission_enabled,
+# retire_unlanded_limitations_enabled) graduated to the base default on
+# 2026-10-07; only the subtractive levers stay diverged until Step 10.
+# Reversion: delete these two lines and the one [audit] line below.
+task_branch_reuse_enabled = false
+self_directed_tasks_enabled = false
+# Proposal 124 — attributed gate observation canary. Flips
+# gate_observation_enabled on in MAESTRO_ENV=production only, so every terminal
+# convergence/landing decision binds to a freshly re-read, diff-attributed gate
+# fact instead of the stale-red / gate-label proxies; base maestro.toml keeps the
+# default-off byte-identical behaviour so every other environment is unchanged.
+# Observation window and graduation criteria live in the "Attributed gate
+# observation canary" subsection of docs/self-evolution.md.
+# Reversion: delete this line.
+gate_observation_enabled = true
+# Proposal 120 — pre-mint generation authority canary. Flips the pre-mint
+# generation gate and the self-model external-capability anchor to their target
+# posture in MAESTRO_ENV=production only; base maestro.toml keeps the
+# behavior-preserving defaults so every other environment stays unchanged.
+# Observation window, deploy-day baselines and graduation criteria live in the
+# "Pre-mint generation authority canary (proposal 120)" subsection of
+# docs/self-evolution.md; both flags are declared as EnvOverlayCanary entries in
+# maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete these two lines.
+pre_mint_generation_gate_enabled = true
+self_model_external_anchor_enabled = true
+# Proposal 128 — merge-queue landing-serialization cutover. Production now runs
+# the queue-serialized landing model (GitHub's merge queue tests each PR once at
+# the front of the queue, against the state it will actually land into), so the
+# tend phase's eager origin/main merge-and-push is retired in
+# MAESTRO_ENV=production only; base maestro.toml keeps
+# tend_main_merge_enabled = true (a stage-`cutover` CUTOVER_FLAGS entry) as the
+# instant, code-free rollback, so every non-production environment is unchanged.
+# This is a True->False override, so enabled_only_in_overlay leaves it out of the
+# prod-only-enabled set and it needs no PROD_ONLY_CANARIES entry. Observation
+# window and tripwires — measured since this PR's production merge — live in the
+# "Cutover & observation" note under §Merge Queue in docs/ci.md.
+# Reversion: delete this line.
+tend_main_merge_enabled = false
+# Proposal 132 — grounded contemplation canary. Flips
+# grounded_reflection_enabled on in MAESTRO_ENV=production only, so the priced
+# slot-A reflection runs on the bounded, structurally read-only
+# reflection-retrieval surface (build_bounded_reflection_tool_set) instead of
+# tools=[] and can pull the one fact a falsifiable bet hinges on; base
+# maestro.toml keeps the default-off byte-identical tool-free session so every
+# other environment stays unchanged. Observation window and graduation criteria
+# live in the "Grounded contemplation canary (proposal 132)" subsection of
+# docs/self-evolution.md; the flag is declared as an EnvOverlayCanary entry in
+# maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+grounded_reflection_enabled = true
+# Proposal 131 — attempt-disposition oracle canary. Flips
+# attempt_disposition_enabled on in MAESTRO_ENV=production only, so every
+# non-green implement_plan terminal routes through
+# attempt_disposition.classify_attempt — RESUME preserves a strictly-progressing
+# evolution branch and carries its failing-identity set forward, ASK_HUMAN parks
+# the plan in the inert blocked status on one question to Thomas, HOLD_INHERITED
+# holds an inherited red, and only ABANDON still demotes the plan; base
+# maestro.toml keeps the default-off byte-identical scattered-terminal behaviour
+# so every other environment stays unchanged. Observation window and graduation
+# criteria live in the "Attempt-disposition oracle canary (proposal 131)"
+# subsection of docs/self-evolution.md; the flag is declared as an
+# EnvOverlayCanary entry in maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+attempt_disposition_enabled = true
+# Issue #3280 Tier 2 — write-time landing-credit grounding canary. Flips
+# prestamp_merge_truth_gate_enabled on in MAESTRO_ENV=production only, so a
+# remediation `success` naming #N is downgraded to `partial` at write time when
+# is_pr_settled reports it unmerged — moving rule 14's post-hoc catch to
+# pre-stamp so a false success never becomes load-bearing. Paired with the Tier 1
+# [audit] block below so both directions of the credit/over-claim axis move
+# together; base maestro.toml keeps the default-off byte-identical behaviour so
+# every other environment stays unchanged. Observation window, tripwires and the
+# per-tier reversion live in the "Landing-credit grounding canary (issue #3280)"
+# subsection of docs/self-evolution.md; the flag is declared as an
+# EnvOverlayCanary entry in maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+prestamp_merge_truth_gate_enabled = true
+# Proposal 114 — plan-premise grounding canary. Flips
+# plan_grounding_enabled on in MAESTRO_ENV=production only, so propose_plan
+# attaches a grounding probe and submit_for_review confirms it against a fresh
+# reading of the tree as its first guard — recording a refuted-premise plan
+# obsolete (gate=plan_grounding) before a human approval is spent; base
+# maestro.toml keeps the default-off byte-identical behaviour so every other
+# environment stays unchanged. Observation window and graduation criteria live
+# in the "Plan-premise grounding canary (proposal 114)" subsection of
+# docs/self-evolution.md; the flag is declared as an EnvOverlayCanary entry in
+# maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+plan_grounding_enabled = true
+# Proposal 135 — refutable stand-down canary. Flips
+# refutable_standdown_enabled on in MAESTRO_ENV=production only, so the tend
+# pass's standdown upkeep runs the third release path
+# (escalation_bridge.prune_refuted_standdowns): a handoff-ready latch whose live
+# owed-act reading has flipped to CODE_OWED — a sibling merge turned the
+# handed-off PR CONFLICTING, say — is released off facts the tend walk already
+# measured, withdrawing its own "only you can land it" message and budgeted by
+# standdown_refutation_release_cap; base maestro.toml keeps the default-off
+# byte-identical two-pruner behaviour so every other environment stays
+# unchanged. Observation window and graduation criteria live in the "Refutable
+# stand-down canary (proposal 135)" subsection of docs/self-evolution.md; the
+# flag is declared as an EnvOverlayCanary entry in maestro/flag_lifecycle.py
+# (PROD_ONLY_CANARIES). standdown_refutation_release_cap inherits its base value.
+# Reversion: delete this line.
+refutable_standdown_enabled = true
+# Proposal 137 — owed-act chokepoint canary (cooldown signature keying). Flips
+# cooldown_signature_keying_enabled on in MAESTRO_ENV=production only, so both
+# tend cooldowns (conflict, quality-fix) release as soon as the observation they
+# were stamped against — branch head, origin/main base, CI rollup — has provably
+# changed, and an unchanged signature decays through a bounded doubling backoff
+# instead of the flat 24h hold; base maestro.toml keeps the default-off pure
+# wall-clock windows so every other environment stays unchanged. Observation
+# window and graduation criteria live in the "Owed-act chokepoint canary
+# (proposal 137)" subsection of docs/self-evolution.md; the flag is declared as
+# an EnvOverlayCanary entry in maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# cooldown_backoff_base_hours inherits its base value.
+# Reversion: delete this line.
+cooldown_signature_keying_enabled = true
+# Proposal 137 — owed-act chokepoint canary (owed-act binding). Flips
+# owed_act_binding_enabled on in MAESTRO_ENV=production only, so audit rule 21
+# drops its 'or gh pr close #N' clause while the PR is code-owed,
+# assess_pr_salvage holds SALVAGE_AND_LAND for code-owed work inside the
+# reconcile budget, and select_task_focus treats a code-owed own PR (even a
+# red-only one with no merge blocker) as a tend-owned slot, so WIP-primacy
+# blocks discretionary generation while it is owed; base
+# maestro.toml keeps the default-off behaviour so every other environment stays
+# unchanged. Criteria live in the same "Owed-act chokepoint canary (proposal
+# 137)" subsection of docs/self-evolution.md; declared as an EnvOverlayCanary
+# entry in maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+owed_act_binding_enabled = true
+# Proposal 133 — gate-runnability oracle canary. Flips
+# gate_environment_oracle_enabled on in MAESTRO_ENV=production only, arming all
+# three of the oracle's consumers: the approved-plan selector refreshes the
+# runnability verdict once per iteration and implements nothing on a non-SOUND
+# verdict (plans stay approved, failure_count untouched, Thomas asked once per
+# fingerprint); a convergence red the cached verdict fully names is attributed
+# ENVIRONMENT and held rather than demoted; and the gate execution lease declines
+# a gate run the cached verdict says cannot reach a verdict. Base maestro.toml
+# keeps the default-off byte-identical behaviour so every other environment stays
+# unchanged. Observation window and graduation criteria live in the
+# "Gate-runnability oracle canary (proposal 133)" subsection of
+# docs/self-evolution.md; the flag is declared as an EnvOverlayCanary entry in
+# maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+gate_environment_oracle_enabled = true
+# Proposal 140 — declared-effort canary ([loop] slice; [sdk] slice below).
+# Flips self_review_own_session_enabled on in MAESTRO_ENV=production only, so
+# each self-review round runs on its own single-use session at the registry's
+# high effort instead of a turn on the implementer's session; base maestro.toml
+# keeps the default-off byte-identical behaviour so every other environment
+# stays unchanged. Observation window and graduation criteria live in the
+# "Declared-effort canary (proposal 140)" subsection of docs/self-evolution.md;
+# the flag is declared as an EnvOverlayCanary entry in maestro/flag_lifecycle.py
+# (PROD_ONLY_CANARIES).
+# Reversion: delete this line and the [sdk] line below (the [sdk] flag requires
+# this one, so delete that first or both together).
+self_review_own_session_enabled = true
+# Proposal 134 — gate-fit budget canary (the deadline flag, first stage). Flips
+# gate_budget_lease_owned_enabled on in MAESTRO_ENV=production only, so the gate
+# execution lease owns the pytest run's deadline as well as its width: the grant
+# carries a deadline_seconds derived from gate_runs.jsonl at that granted width,
+# escalating 1.5x off a run killed at its own deadline, floored at [timeouts]
+# selfcheck and capped at [timeouts] selfcheck_max. Since #3895 raised selfcheck
+# to 900 the derived budget equals flag-off until a run's p50*1.25 exceeds 900 or
+# a run is killed at 900; only then does it escalate toward selfcheck_max instead
+# of re-killing at the same ceiling. The reserve and impacted-scope flags stay
+# dark for later windows. Base maestro.toml keeps the default-off byte-identical
+# behaviour so every other environment stays unchanged. Observation window and
+# graduation criteria live in the "Gate-fit budget canary (proposal 134)"
+# subsection of docs/self-evolution.md; the flag is declared as an
+# EnvOverlayCanary entry in maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+gate_budget_lease_owned_enabled = true
+# Proposal 125 — host-capacity sensor canary. Flips host_capacity_sensor_enabled
+# on in MAESTRO_ENV=production only, so contemplation reads load per core, memory
+# and swap residency, and free disk (the Docker root, falling back to the
+# /workspace mount inside the loop container) onto the diagnostic snapshot and
+# the Health Summary names any saturated resource. Base maestro.toml keeps the
+# default-off byte-identical behaviour so every other environment stays
+# unchanged. Thresholds, observation window, and graduation criteria live in the
+# "Host-capacity sensor canary (proposal 125)" subsection of
+# docs/self-evolution.md; the flag is declared as an EnvOverlayCanary entry in
+# maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+host_capacity_sensor_enabled = true
+# Proposal 143 — grounded planning canary. Flips grounded_planning_enabled on in
+# MAESTRO_ENV=production only, so the single-use propose_plan session
+# (grounded_planning_callers at its one-caller default) carries the
+# bounded read-only tree surface (tree_retrieval.build_bounded_tree_tool_set)
+# instead of tools=[], read the paths and symbols they cite, and stamp
+# grounded_reads on each minted plan; it degrades to tool-free under
+# budget_throttle_active. Requires the [sdk] single_use_evolution_calls_enabled
+# line below. propose_plan_chain and curate_pending_plans stay off the caller
+# list until the cost tripwire holds. Base maestro.toml keeps the default-off
+# byte-identical behaviour so every other environment stays unchanged.
+# Observation window and graduation criteria live in the "Grounded planning
+# canary (proposal 143)" subsection of docs/self-evolution.md; the flag is
+# declared as an EnvOverlayCanary entry in maestro/flag_lifecycle.py
+# (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+grounded_planning_enabled = true
+# Grounded planner rejection-ledger search canary. Flips
+# grounded_planning_rejection_tool_enabled on in MAESTRO_ENV=production only, so
+# the grounded planner's bounded tree surface gains a sixth pure tool,
+# search_rejections, backed by the rejected-plan corpus evolution.py reads from
+# memory — letting the planner query the specific ideas already refused (and
+# their reasons) at mint time rather than only the aggregate category counts
+# read_reality_inventory surfaces. Success is a fall in rejection:duplicate /
+# rejection:wrong_approach among plans minted after the flip. The flag is
+# declared as an EnvOverlayCanary entry in maestro/flag_lifecycle.py
+# (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+grounded_planning_rejection_tool_enabled = true
+# Proposal 145 — reviewer feedback canary. Flips plan_feedback_enabled on in
+# MAESTRO_ENV=production only, so select_curation_target curates a
+# pending_review plan carrying unaddressed reviewer_feedback first (bypassing
+# the curate grace floor), curate_with_feedback makes the curator answer that
+# feedback and stamps it addressed, a three-strike release
+# (MAX_FEEDBACK_CURATE_ATTEMPTS) frees feedback it cannot act on, and the
+# curate phase fires off-cadence while a pending plan holds unaddressed
+# feedback. Rides on the curate_enabled operational line above. Base
+# maestro.toml keeps the default-off byte-identical behaviour so every other
+# environment stays unchanged. Observation window and graduation criteria live
+# in the "Reviewer feedback canary (proposal 145)" subsection of
+# docs/self-evolution.md; the flag is declared as an EnvOverlayCanary entry in
+# maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+plan_feedback_enabled = true
+# Proposal 136 — generator reality grounding canary. Flips
+# generator_reality_grounding_enabled on in MAESTRO_ENV=production only, so
+# propose_plan declares new_capability_names, submit_for_review
+# clears them against the reality inventory as its first guard (recording a plan
+# that re-proposes a shipped capability or cites an unmeasured problem obsolete
+# as [ungrounded-generation:<reason>] before any human is notified).
+# The planner reads the measured-problem ids through the grounded planning
+# canary's read_reality_inventory tool above. Base maestro.toml keeps the
+# default-off byte-identical behaviour so every other environment stays
+# unchanged. Observation window and graduation criteria live in the "Generator
+# reality grounding canary (proposal 136)" subsection of docs/self-evolution.md;
+# the flag is declared as an EnvOverlayCanary entry in maestro/flag_lifecycle.py
+# (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+generator_reality_grounding_enabled = true
+
+[mcp]
+# Proposal 084 step 1 — Context7 canary. Turns the Context7 library-docs MCP
+# server on in production only; base maestro.toml keeps context7_enabled = false,
+# so every other environment stays off. Reversion: delete this section.
+# Symbol-level retrieval (proposal 084 steps 3-7) remains off here.
+context7_enabled = true
+
+[audit]
+# Proposal 090 — Narration→action forced-arm canary. Arms the two forced
+# actuator arms (audit rules 12/14) plus the reality-refutation watchdog in
+# production only; base maestro.toml keeps these default-off, so every other
+# environment stays off. Graduation criteria and the 30-day observation window
+# live in the "Forced-arm graduation criteria (proposal 090)" subsection of
+# docs/self-evolution.md; reality_refutation_threshold inherits its base value.
+# Reversion: delete this section.
+phantom_escalation_delivery_enabled = true
+unconfirmed_landing_forced_enabled = true
+reality_refutation_display_enabled = true
+reality_refutation_enabled = true
+# Proposal 116 — plan-mill closure canary ([audit] slice; [loop] slice above).
+# Silences the seven branch-promotion-pressure sites in MAESTRO_ENV=production
+# only; base maestro.toml keeps the behavior-preserving defaults so every other
+# environment stays unchanged. Observation window and graduation criteria live in the
+# "Plan-mill closure canary" subsection of docs/self-evolution.md.
+# Reversion: delete this line and the two [loop] lines above.
+branch_promotion_pressure_enabled = false
+# Proposal 129 — consciousness-as-measured-function canary. Flips all four
+# self-calibration flags on in MAESTRO_ENV=production only: the priced reflection
+# states a machine-checkable loss condition + a CONFIDENCE and the oracle (not the
+# PRIOR VERDICT self-grade) authors the reflection ledger verdict, capability
+# claims resolve against cited evidence, and a refuted mechanical_fact audit
+# finding that keeps re-firing on the same target is restored to its canonical
+# [audit] form. Base maestro.toml keeps all four default-off byte-identical, so
+# every other environment stays unchanged. Observation window and graduation
+# criteria live in the "Consciousness measured-function canary (proposal 129)"
+# subsection of docs/self-evolution.md; each flag is declared as an
+# EnvOverlayCanary entry in maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete these four lines.
+self_calibration_enabled = true
+calibration_verdict_authority_enabled = true
+evidence_bound_claims_enabled = true
+refutation_accountability_enabled = true
+# Issue #3280 Tier 1 — affirmative landing-credit canary. Arms audit rules 20
+# (undercredited_landing) and 21 (reconcile_near_miss) in MAESTRO_ENV=production
+# only, so a landing git proves happened is credited mechanically and a
+# cleanly-reconcilable own PR in the near band is surfaced before it rots — the
+# affirmative half of a sensor set that could previously only downgrade a claim.
+# Base maestro.toml keeps both default-off so every other environment stays
+# unchanged; reconcile_near_max_behind inherits its base value. Observation
+# window, tripwires and the per-tier reversion live in the "Landing-credit
+# grounding canary (issue #3280)" subsection of docs/self-evolution.md; both
+# flags are declared as EnvOverlayCanary entries in maestro/flag_lifecycle.py
+# (PROD_ONLY_CANARIES). Paired with the Tier 2 [loop] line above.
+# Reversion: delete these two lines.
+undercredited_landing_enabled = true
+reconcile_near_miss_enabled = true
+
+[sdk]
+# Proposal 139 — single-use evolution calls canary. Runs the evolution-lineage
+# callers (propose_plan(_chain), curate_pending_plans; reflect,
+# evolution_introspect, dream and stage/purpose calls have since been retired) through
+# call_policy.single_use_call instead of the shared slot-B session, so each call
+# owns its declared effort and reads no other caller's transcript. Base
+# maestro.toml keeps it default-off, so every other environment stays on slot B.
+# Observation window, tripwires and graduation criteria live in the "Single-use
+# evolution calls canary (proposal 139)" subsection of docs/self-evolution.md;
+# declared as an EnvOverlayCanary entry in maestro/flag_lifecycle.py
+# (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+single_use_evolution_calls_enabled = true
+# Proposal 140 — declared-effort canary ([sdk] slice; [loop] slice above).
+# Flips call_policy_resolution_enabled on in MAESTRO_ENV=production only, so the
+# SDK seam resolves every call's effort from the call-policy registry and refuses
+# a session turn at a mismatched effort, still on the current model. Tier map:
+# REVIEW high, PLANNING/REFINEMENT medium, everything else low — so most
+# callers (implement_plan, auto_fix, execute_step, introspect, ...) drop
+# to low; contemplation quality has no tripwire in this window. Base
+# maestro.toml keeps the default-off byte-identical behaviour so every other
+# environment stays unchanged. Requires single_use_evolution_calls_enabled
+# (above) and the [loop] self_review_own_session_enabled line. Observation
+# window and graduation criteria live in the "Declared-effort canary (proposal
+# 140)" subsection of docs/self-evolution.md; the flag is declared as an
+# EnvOverlayCanary entry in maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+call_policy_resolution_enabled = true
+# Proposal 142 — enforced tool-surface canary.
+# Flips enforced_tool_surface_enabled on in MAESTRO_ENV=production only, so the
+# SDK seam derives every call's `tools` from its caller's declared tool surface,
+# refuses an off-surface tool name or MCP server, refuses a shell-capable
+# surface without action-gate hooks, and checks each session turn's surface
+# against its session's. Repo-mutating sessions lose Monitor / ScheduleWakeup /
+# ListAgents and keep Bash with TaskOutput / TaskStop. Base maestro.toml keeps
+# the default-off byte-identical behaviour. Observation window and graduation
+# criteria live in the "Enforced tool-surface canary (proposal 142)" subsection
+# of docs/self-evolution.md; the flag is declared as an EnvOverlayCanary entry
+# in maestro/flag_lifecycle.py (PROD_ONLY_CANARIES).
+# Reversion: delete this line.
+enforced_tool_surface_enabled = true

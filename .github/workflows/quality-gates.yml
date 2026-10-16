@@ -1,0 +1,190 @@
+name: Quality Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+# Least privilege: the gates only read the checkout and use no secrets.
+permissions:
+  contents: read
+
+concurrency:
+  # Group per-PR-ref for pull requests (so a newer push supersedes the older
+  # run on the same PR) but per-commit-SHA for push:[main] and
+  # workflow_dispatch. A shared github.ref group on main would let a *pending*
+  # run be cancelled when a third commit queues behind an in-progress one
+  # (GitHub cancels the previously-pending run regardless of cancel-in-progress);
+  # a unique per-SHA group never collides, so every main commit runs to
+  # completion and carries its own verdict.
+  group: quality-gates-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  # Cancel superseded runs only on pull requests, where a newer push should
+  # supersede the older run for fast iteration. On push:[main] each commit
+  # runs to completion.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    # Sized for the worst legitimate path: a parallel run (~6 min) that fails on a
+    # resource artifact, then the serial re-run (~15+ min). At 15 the re-run could
+    # never finish, so every red surfaced as an uninformative 'cancelled'.
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: ./.github/actions/py-setup
+
+      - name: Install dependencies
+        # maestro/providers/cli_paced.py imports the sibling maestro_sdk package.
+        # It is lazy at runtime (the default anthropic path never loads it), but
+        # `mypy maestro/` type-checks cli_paced.py and `pytest tests/` collects
+        # test_provider_cli_paced.py — both import maestro_sdk eagerly. maestro_sdk
+        # is a sibling package excluded from the main distribution's
+        # `packages.find`, so a bare `pip install -e .` never picks it up; it must
+        # be installed separately and explicitly here so the maestro suite's
+        # dependency is declared.
+        run: uv pip install -e "maestro_sdk/" && uv pip install -e ".[dev,email]" -c constraints.txt
+
+      - name: Lint (ruff)
+        run: ruff check maestro/ tests/ scripts/
+
+      - name: Type check (mypy)
+        run: mypy maestro/ scripts/
+
+      - name: Tests with coverage (pytest)
+        # Hoisted into the `args` array so the parallel run and the serial
+        # fallback share one spelling.
+        #
+        # Runs the suite across cores with `-n auto --dist loadfile`
+        # (pytest-xdist), roughly halving wall clock versus serial; pytest-cov
+        # combines per-worker coverage so the 100% gate holds. `--dist loadfile`
+        # keeps a file's tests on one worker instead of xdist's default `load`
+        # scheduler, so the module-scoped whole-tree AST fixtures in
+        # tests/test_structural_guards.py are built once per worker rather than
+        # rebuilt per test. The job runs on a GitHub-hosted ephemeral runner, so
+        # `-n auto` sizes to that VM's CPU count.
+        #
+        # Classified serial fallback: `--dist loadfile` bounds fixture-rebuild
+        # cost but not peak memory, so a worker can still be OOM-killed and its
+        # lost coverage trip --cov-fail-under=100 even though every test passed
+        # (seen in practice). A failed parallel run is therefore classified by the same
+        # owner scripts/quality-gates.sh's lease path uses (`maestro
+        # gate-classify`, proposal 126, with the same 127 / >128 non-answer
+        # mapping as its classify_gate_run) instead of being blindly re-run: a
+        # resource artifact (COVERAGE / TIMEOUT / UNAVAILABLE - the last covering
+        # xdist's "worker crashed while running" report) earns one serial re-run
+        # whose result is authoritative, while a red that already carries its
+        # answer (FAILED / COLLECTION_ERROR) fails at once with its real failures
+        # instead of burning the job timeout on a serial pass that would only
+        # repeat them. A green parallel run exits immediately, keeping the
+        # speed-up. The runner's default shell is `bash -e` without pipefail, so
+        # the parallel run's status is read from PIPESTATUS behind `set +e`.
+        run: |
+          args=(
+            tests
+            -v
+          )
+          log="$RUNNER_TEMP/pytest-parallel.log"
+          set +e
+          pytest "${args[@]}" -n auto --dist loadfile 2>&1 | tee "$log"
+          rc="${PIPESTATUS[0]}"
+          set -e
+          if [[ "$rc" -eq 0 ]]; then
+            exit 0
+          fi
+          # Mirror scripts/quality-gates.sh's classify_gate_run: a run that never
+          # produced its own verdict (127: could not start; >128: signal-killed,
+          # e.g. the OOM killer taking the controller) is a non-answer, not a red.
+          extra=()
+          if [[ "$rc" -eq 127 ]]; then
+            extra=(--kind UNAVAILABLE)
+          elif [[ "$rc" -gt 128 ]]; then
+            extra=(--kind TIMEOUT)
+          fi
+          kind="$(python -m maestro.cli gate-classify --tool tests --returncode "$rc" "${extra[@]}" <"$log" || true)"
+          if [[ -z "$kind" ]]; then
+            echo "::warning::gate-classify produced no token; treating the run as FAILED"
+            kind=FAILED
+          fi
+          case "$kind" in
+            COVERAGE|TIMEOUT|UNAVAILABLE)
+              echo "::warning::parallel pytest run failed ($kind); re-running serially"
+              pytest "${args[@]}"
+              ;;
+            *)
+              echo "::error::parallel pytest run failed ($kind); answered red, no serial re-run"
+              exit "$rc"
+              ;;
+          esac
+
+  browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: ./.github/actions/py-setup
+
+      - name: Install dependencies
+        run: uv pip install -e ".[dev,browser]" -c constraints.txt
+
+      - name: Install Playwright browsers
+        # --with-deps installs the system libraries Chromium needs on a
+        # GitHub-hosted Ubuntu image.
+        run: playwright install --with-deps chromium
+
+      - name: Run browser tests
+        run: pytest tests/browser -v -m browser --no-cov --browser chromium
+
+  package-quality:
+    # The two standalone sibling packages (maestro_review/ and maestro_sdk/)
+    # share one runner: one checkout, one py-setup, one install, then
+    # both gate sets in sequence. Each set is a small, fast --no-cov triple, so
+    # collapsing the two former review-quality / sdk-quality jobs into one avoids
+    # paying the fixed per-job overhead (runner start, checkout, py-setup,
+    # uv pip install) twice. Neither sibling
+    # depends on the main maestro package (maestro_sdk has no deps;
+    # maestro_review depends only on claude-agent-sdk), so installing both in
+    # one venv still does NOT install maestro, preserving the
+    # tests/test_review_suite_isolation.py guarantee. The gate sets now run
+    # sequentially, so a red maestro_review step fails the job before the
+    # maestro_sdk steps run (fail-fast within the job).
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: ./.github/actions/py-setup
+
+      - name: Install dependencies
+        run: uv pip install -e "maestro_review/[dev]" -e "maestro_sdk/[dev]"
+
+      - name: Lint (ruff, maestro_review)
+        run: ruff check maestro_review/ tests/test_maestro_review/
+
+      - name: Type check (mypy, maestro_review)
+        run: mypy maestro_review/
+
+      - name: Tests (pytest, maestro_review)
+        run: pytest tests/test_maestro_review -v --no-cov
+
+      - name: Lint (ruff, maestro_sdk)
+        working-directory: maestro_sdk
+        run: ruff check src/ tests/
+
+      - name: Type check (mypy, maestro_sdk)
+        working-directory: maestro_sdk
+        run: mypy src/
+
+      - name: Tests (pytest, maestro_sdk)
+        working-directory: maestro_sdk
+        run: pytest tests/ -v

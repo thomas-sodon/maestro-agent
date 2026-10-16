@@ -1,0 +1,127 @@
+# Workload placement manifest.
+#
+# Archived: Maestro is no longer deployed. The production tier below records
+# the host as it was while the experiment ran; no machine runs it today.
+#
+# The single checked-in statement of which long-lived workload runs on which
+# machine tier, and — for CI workloads — which runner label a workflow must
+# target to land there. `tests/test_workload_placement.py` binds every
+# `runs-on:` in `.github/workflows/` to a `runner_label` declared here, and
+# reds when a bursty batch workload is co-tenanted with the interactive or
+# steady-autonomous tiers without a written exception. Pointing a workflow
+# back at the production host is therefore a red build naming this file,
+# rather than a silent regression.
+#
+# Workload fields:
+#   name    — the systemd unit, container name, or pool this entry describes.
+#   class   — one of:
+#             interactive        the operator's own shell; latency is felt
+#                                directly, so it outranks every batch tenant.
+#             steady-autonomous  a long-running service with a bounded,
+#                                predictable draw (the Maestro containers).
+#             bursty-batch       spiky, parallel, all-cores-when-it-runs work
+#                                (CI). This is the class that starves the two
+#                                above when co-tenanted with them.
+#             incidental         low-draw hobby/desktop services, deliberately
+#                                left un-evicted and unbounded.
+#   tier    — the `[[tier]]` this workload runs on.
+#   kind    — `systemd`, `container`, or `managed` (someone else's machine).
+#   runner_label        — optional; the GitHub Actions `runs-on:` label that
+#                         routes a job to this workload. Only CI workloads
+#                         carry one, and the guard resolves every workflow's
+#                         `runs-on:` against the declared set.
+#   status              — optional, defaults to `active`. `retired` marks a
+#                         de-registered tree still consuming disk, so a future
+#                         reclamation is an auditable manifest edit rather
+#                         than folklore. No entry is `retired` today.
+#   colocation_exception — optional inline table with a non-empty `reason`.
+#                         The only way a `bursty-batch` workload may legally
+#                         share a tier with an `interactive` or
+#                         `steady-autonomous` one. Deleting the exception is
+#                         how the co-tenancy is retired: the guard reds until
+#                         the workload itself is gone from this file.
+
+schema_version = 1
+
+# --- Tiers ------------------------------------------------------------------
+
+[[tier]]
+name = "production-vps"
+description = """
+The production host. Runs the operator's interactive shell, the two \
+containerised Maestro services, and the host-local systemd deploy agent \
+(`scripts/deploy-agent.sh`), which drives `scripts/safe-deploy.sh` against this \
+host's own Docker daemon and the bind-mounted working tree the running loop \
+executes from. No GitHub Actions runner runs here: CI runs on GitHub-hosted \
+runners, and deploys are applied by the host agent."""
+
+[[tier]]
+name = "github-hosted"
+description = """
+GitHub-hosted runners — ephemeral VMs on someone else's machines, one job per \
+fresh VM. Holds no class other than `bursty-batch`, which is the point: CI's \
+spiky all-cores draw has no interactive or steady-autonomous neighbour to \
+starve."""
+
+# --- Interactive ------------------------------------------------------------
+
+[[workload]]
+name = "devshell.service"
+class = "interactive"
+tier = "production-vps"
+kind = "systemd"
+
+# --- Steady autonomous ------------------------------------------------------
+#
+# `cpu_limit` / `memory_limit` record the bounds `docker-compose.yml` already
+# declares under each service's `deploy.resources.limits`; the compose file
+# stays authoritative and this manifest records rather than restates them.
+
+[[workload]]
+name = "maestro-loop"
+class = "steady-autonomous"
+tier = "production-vps"
+kind = "container"
+cpu_limit = "4.0"
+memory_limit = "6G"
+
+[[workload]]
+name = "maestro-dashboard"
+class = "steady-autonomous"
+tier = "production-vps"
+kind = "container"
+cpu_limit = "1.0"
+memory_limit = "1G"
+
+# --- Bursty batch -----------------------------------------------------------
+
+[[workload]]
+name = "github-hosted-runners"
+class = "bursty-batch"
+tier = "github-hosted"
+kind = "managed"
+runner_label = "ubuntu-latest"
+
+# --- Incidental -------------------------------------------------------------
+
+[[workload]]
+name = "hobby.service"
+class = "incidental"
+tier = "production-vps"
+kind = "systemd"
+
+# --- CI job placement -------------------------------------------------------
+#
+# The allow-list of `"<workflow file>:<job>"` pairs licensed to run on a tier
+# co-tenanted with interactive or steady-autonomous work — the production host.
+# `tests/test_workload_placement.py` reds when any CI job resolves to such a
+# tier without being listed here, so this list is the one sanctioned exit from
+# that guard. It is empty: every CI job runs on GitHub-hosted runners, and the
+# production host carries no Actions runner at all; the host-local systemd
+# deploy agent is a systemd service, not an Actions runner job (see the
+# `production-vps` tier note). The list — and the guard behind
+# it — stays so a future job pointed back at a production-host runner reds the
+# build naming this file rather than regressing silently.
+
+[ci_placement]
+production_host_jobs = []

@@ -1,0 +1,26 @@
+# Maestro host-local pull-based deploy agent — oneshot service.
+#
+# Installed out-of-band onto the production host (see deploy/systemd/README.md).
+# UNLIKE the sibling <unit>.d/ resource drop-ins, this is a full executable unit,
+# not a [Service] merge over a vendored base — so it carries [Unit]/[Service]/
+# [Install] sections of its own and lives in a non-`.d` subdirectory.
+#
+# Operator: adjust User=, WorkingDirectory=, and ExecStart= to the deploy user
+# and repo-clone path on your host. The script defaults its deploy directory to
+# ${DEPLOY_DIR:-$HOME/maestro}; set Environment=DEPLOY_DIR=/path/to/clone here if
+# the clone lives elsewhere than the service user's $HOME/maestro.
+
+[Unit]
+Description=Maestro host-local pull-based deploy agent
+Documentation=file:///home/operator/maestro/deploy/systemd/README.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=devshell
+WorkingDirectory=/home/operator/maestro
+ExecStart=/home/operator/maestro/scripts/deploy-agent.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,58 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg-info.bak/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+.env
+*.log
+/data/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.json
+htmlcov/
+.claude/worktrees/
+.claude/settings.local.json
+.mcp.json
+uv.lock
+artifacts/
+maestro.egg-info.bak/
+
+# Retired package (proposal 074): the maestro.sdk_backends seam is dead — its
+# source was re-homed into maestro/providers/. Belt-and-suspenders over the
+# global __pycache__/ rule so the whole retired directory stays untracked.
+maestro/sdk_backends/
+
+# Logs
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dev-debug.log
+# Dependency directories
+node_modules/
+# Environment variables
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OS specific
+.DS_Store
+
+# Task files
+# tasks.json
+# tasks/ 
+maestro.local.toml
+.taskmaster/

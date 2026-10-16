@@ -1,0 +1,150 @@
+[project]
+name = "maestro"
+version = "0.1.0"
+description = "Self-sustaining autonomous agent that runs revenue streams to pay for its own hosting and tokens"
+requires-python = ">=3.14"
+dependencies = [
+    "claude-agent-sdk>=0.2.165",
+    "mcp>=2.3.0,<3",
+    "fastapi>=0.143.0",
+    "uvicorn[standard]>=0.54.0",
+    "python-telegram-bot>=22.8",
+    "jinja2>=3.1.0",
+    "python-dotenv>=1.2.4",
+    "jsonschema>=4.20.0",
+    # Already resolved transitively via pydantic v2 (FastAPI); declared explicitly
+    # so the declarative config shadow parse (proposal 106 Phase A) imports a
+    # first-class contract rather than an incidental transitive.
+    "pydantic-settings>=2.15.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
+    # Used by tests/test_inproc_mcp.py to parse the mcp version specifier;
+    # declared explicitly rather than leaned on as an incidental transitive.
+    "packaging>=26.3",
+    # Used by tests/test_workflow_action_runtime.py,
+    # tests/test_workload_placement.py, and tests/test_dependabot_config.py to
+    # parse checked-in workflow and Dependabot YAML; declared explicitly rather
+    # than leaned on as an incidental transitive of the uvicorn[standard] runtime
+    # extra.
+    "pyyaml>=6.0.3",
+    "httpx",
+    "respx",
+    "ruff>=0.17.0",
+    "mypy>=2.4.0",
+]
+browser = [
+    "playwright>=1.63.0",
+    "pytest-playwright>=0.10.0",
+]
+email = [
+    "aiosmtplib>=5.1.3",
+    "aioimaplib>=2.0.1",
+]
+
+[project.scripts]
+maestro = "maestro.cli:main"
+
+[build-system]
+requires = ["setuptools>=84.0.0"]
+build-backend = "setuptools.build_meta"
+
+# The sibling packages maestro_review/ and maestro_sdk/ live in their own
+# source trees with their own pyproject.toml and are installed separately
+# (see docs/deployment.md + .github/workflows/quality-gates.yml). They must be
+# excluded here: `include = ["maestro*"]` would otherwise sweep maestro_sdk into
+# maestro's editable install as a namespace mapped at the project *root* (which
+# holds no importable module — the package is under maestro_sdk/src/maestro_sdk),
+# shadowing the real package and turning `import maestro_sdk.mcp_config` into a
+# ModuleNotFoundError whenever the sibling is not installed first.
+[tool.setuptools.packages.find]
+include = ["maestro*"]
+exclude = ["maestro_review*", "maestro_sdk*"]
+
+# --- Quality Gate Configuration ---
+
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",   # line length handled by formatter
+    "SIM108", # ternary operator suggestions
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["maestro", "maestro_review"]
+
+[tool.mypy]
+python_version = "3.14"
+# The sibling maestro_sdk package is installed separately (editable) in CI but is
+# absent on the loop devbox, where self-review runs mypy. Without its source tree
+# on mypy's module-search path, `maestro/providers/cli_paced.py` reported ~20
+# phantom `attr-defined` errors ("Module 'maestro_sdk' has no attribute ...") that
+# poisoned the RED/GREEN instrument (health summaries, red-root, self-review).
+# `maestro_sdk/src` points at the same physical tree the editable install exposes,
+# so this adds a fallback resolution without creating a duplicate module in CI.
+mypy_path = "maestro_sdk/src"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+# Mirrors [tool.mypy] mypy_path above: the sibling maestro_sdk package is
+# installed separately (editable) in CI but is absent on the loop devbox, where
+# self-review runs pytest. Without its source tree on the import path, the two
+# modules that import it at top level (tests/test_provider_cli_paced.py,
+# tests/test_tool_adapter.py) abort at *collection*, degrading the whole run to
+# "could not run" rather than costing two modules. `maestro_sdk/src` points at
+# the same physical tree the editable install exposes, so in CI this resolves to
+# the same module rather than a duplicate.
+#
+# Precedence, deliberately: pytest *prepends* these entries to sys.path, so this
+# checkout's own maestro_sdk/src always wins over any installed editable sibling.
+# In CI they are the same tree; on a dev box with several checkouts it means a
+# run here exercises *this* tree's maestro_sdk, not whichever checkout happens to
+# own the site-packages .pth — which is the behaviour a per-checkout gate wants.
+pythonpath = ["maestro_sdk/src"]
+asyncio_mode = "strict"
+addopts = "--cov=maestro --cov=maestro_review --cov-report=term-missing --cov-fail-under=100 -m 'not browser' --durations=10"
+timeout = 5
+timeout_method = "thread"
+markers = [
+    "browser: browser-based UI tests (require Playwright)",
+    "component: component integration tests (mock external services at Python level)",
+    "browser_context_args: pass browser context args to the Playwright browser context (registered by pytest-playwright at browser-run time)",
+]
+
+[tool.coverage.run]
+omit = [
+    # Integration modules tested via component tests (mocked in unit tests)
+    "maestro_review/sdk.py",
+    "maestro_review/github.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "^\\s*\\.\\.\\.\\s*$",
+]

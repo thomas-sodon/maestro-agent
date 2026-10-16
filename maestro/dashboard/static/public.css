@@ -1,0 +1,400 @@
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    z-index: 2;
+  }
+  .wordmark {
+    font-size: 1.15em;
+    color: var(--accent);
+    letter-spacing: 2px;
+    font-weight: bold;
+  }
+  .account-link {
+    padding: 6px 16px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text-dim);
+    font-size: 0.85em;
+    letter-spacing: 1px;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .account-link:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  .hero {
+    position: relative;
+    padding: 80px 32px 64px;
+    text-align: center;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 0%, var(--accent-glow) 0%, transparent 55%),
+      radial-gradient(ellipse at 20% 100%, rgba(96,165,250,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(74,222,128,0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .hero-content { position: relative; z-index: 1; }
+  .hero h1 {
+    font-size: 4.2em;
+    letter-spacing: 6px;
+    color: var(--text);
+    font-weight: bold;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 60%, #4ade80 120%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hero-subtitle {
+    color: var(--text-dim);
+    font-size: 1.02em;
+    letter-spacing: 1px;
+    max-width: 640px;
+    margin: 0 auto 28px;
+  }
+  .status-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 18px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface);
+    font-size: 0.85em;
+    color: var(--text-dim);
+  }
+  .status-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--text-mute);
+  }
+  .status-dot.running {
+    background: var(--success);
+    box-shadow: 0 0 10px var(--success);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+  .uptime {
+    margin-top: 14px;
+    color: var(--text-mute);
+    font-size: 0.8em;
+    letter-spacing: 1px;
+  }
+  .uptime strong { color: var(--text); font-weight: normal; }
+
+  main { max-width: 960px; margin: 0 auto; padding: 24px 32px 80px; position: relative; z-index: 1; }
+
+  section { margin-bottom: 56px; }
+  .section-title {
+    font-size: 0.78em;
+    color: var(--text-mute);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+
+  .quote {
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+    padding: 18px 24px;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 10px;
+    font-size: 0.98em;
+    color: var(--text);
+  }
+  .quote::before { content: "“"; color: var(--accent); font-size: 1.4em; margin-right: 4px; }
+  .quote::after { content: "”"; color: var(--accent); font-size: 1.4em; margin-left: 2px; }
+
+  .values-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .values-list li {
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.88em;
+    color: var(--text);
+  }
+
+  .self-portrait {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  @media (max-width: 640px) {
+    .self-portrait { grid-template-columns: 1fr; gap: 24px; }
+  }
+  .portrait-group h4 {
+    font-size: 0.72em;
+    color: var(--text-mute);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+    font-weight: normal;
+    text-align: center;
+  }
+  .portrait-group ul { list-style: none; }
+  .portrait-group li {
+    font-size: 0.9em;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .portrait-group li:last-child { border-bottom: none; }
+  .portrait-group li::before {
+    content: "›";
+    color: var(--accent);
+    margin-right: 8px;
+  }
+  /* Asymmetry: limitations carry full weight; capabilities sit slightly back. */
+  .portrait-group.capabilities { opacity: 0.78; }
+  .portrait-group.capabilities li { font-size: 0.85em; }
+  .portrait-group.limitations { opacity: 1; }
+
+  .journey-strip {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .ratio-line {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .ratio-number {
+    font-size: 2em;
+    font-weight: bold;
+    color: var(--text);
+  }
+  .ratio-label {
+    font-size: 0.85em;
+    color: var(--text-mute);
+    letter-spacing: 1px;
+  }
+  .journey-since {
+    margin-top: 18px;
+    text-align: center;
+    color: var(--text-mute);
+    font-size: 0.78em;
+    letter-spacing: 1px;
+  }
+
+  .muted { color: var(--text-mute); font-style: italic; text-align: center; font-size: 0.9em; }
+
+  .partner-line {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9em;
+    margin-bottom: 6px;
+  }
+
+  footer {
+    text-align: center;
+    padding: 24px 32px 40px;
+    color: var(--text-mute);
+    font-size: 0.72em;
+    letter-spacing: 2px;
+    border-top: 1px solid var(--border);
+  }
+
+  .phase-orb {
+    --orb-hue: 250;
+    --orb-speed: 6s;
+    --orb-amp: 0.2;
+    /* Fixed orb visual character — the retired evolutionary-stage ladder once
+       overrode these per stage; now a single static look, driven only by phase. */
+    --orb-blur: 20px;
+    --orb-edge-opacity: 0.15;
+    --orb-glow-intensity: 0.15;
+    --orb-particle-scale: 0.6;
+    --orb-particle-opacity: 0.25;
+    position: relative;
+    width: 220px;
+    height: 220px;
+    margin: 0 auto 14px;
+    pointer-events: none;
+  }
+  .orb-core,
+  .orb-ring,
+  .orb-particles {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+  }
+  .orb-core {
+    inset: 30%;
+    background: radial-gradient(
+      circle,
+      hsl(var(--orb-hue) 95% 72%) 0%,
+      hsl(var(--orb-hue) 85% 52% / 0.55) 55%,
+      hsl(var(--orb-hue) 80% 40% / 0) 100%
+    );
+    filter: blur(var(--orb-blur));
+    box-shadow:
+      0 0 30px hsl(var(--orb-hue) 90% 60% / 0.55),
+      0 0 70px hsl(var(--orb-hue) 90% 55% / var(--orb-glow-intensity));
+    animation: orb-pulse var(--orb-speed) ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+  .orb-ring {
+    inset: 10%;
+    border: 1px solid hsl(var(--orb-hue) 60% 60% / var(--orb-edge-opacity));
+    background:
+      conic-gradient(
+        from 0deg,
+        hsl(var(--orb-hue) 80% 60% / 0) 0deg,
+        hsl(var(--orb-hue) 80% 60% / var(--orb-edge-opacity)) 90deg,
+        hsl(var(--orb-hue) 80% 60% / 0) 180deg,
+        hsl(var(--orb-hue) 80% 60% / var(--orb-edge-opacity)) 270deg,
+        hsl(var(--orb-hue) 80% 60% / 0) 360deg
+      );
+    -webkit-mask: radial-gradient(
+      circle,
+      transparent 46%,
+      #000 48%,
+      #000 50%,
+      transparent 52%
+    );
+            mask: radial-gradient(
+      circle,
+      transparent 46%,
+      #000 48%,
+      #000 50%,
+      transparent 52%
+    );
+    animation: orb-rotate calc(var(--orb-speed) * 3) linear infinite;
+  }
+  .orb-particles {
+    inset: 0;
+    animation: orb-orbit calc(var(--orb-speed) * 2) linear infinite;
+  }
+  .orb-particles::before,
+  .orb-particles::after {
+    content: "";
+    position: absolute;
+    width: calc(6px * var(--orb-particle-scale));
+    height: calc(6px * var(--orb-particle-scale));
+    border-radius: 50%;
+    background: hsl(var(--orb-hue) 95% 72%);
+    box-shadow: 0 0 8px hsl(var(--orb-hue) 95% 72% / 0.9);
+    opacity: var(--orb-particle-opacity);
+    top: 50%;
+    left: 50%;
+    margin: calc(-3px * var(--orb-particle-scale)) 0 0 calc(-3px * var(--orb-particle-scale));
+  }
+  .orb-particles::before {
+    transform: translate(90px, 0);
+  }
+  .orb-particles::after {
+    transform: translate(-90px, 0);
+  }
+
+  @keyframes orb-pulse {
+    0%, 100% {
+      transform: scale(calc(1 - 0.18 * var(--orb-amp)));
+      opacity: calc(0.55 + 0.15 * var(--orb-amp));
+    }
+    50% {
+      transform: scale(calc(1 + 0.18 * var(--orb-amp)));
+      opacity: 1;
+    }
+  }
+  @keyframes orb-rotate {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes orb-orbit {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes orb-shimmer {
+    /* Re-apply the orb blur in every keyframe.  CSS animations replace the
+       entire animated property for their duration, so omitting blur here would
+       erase the static `filter: blur(var(--orb-blur))` on .orb-core while
+       shimmer runs (the evolve phase). */
+    0%, 100% { filter: blur(var(--orb-blur)) hue-rotate(0deg) saturate(1); }
+    50%      { filter: blur(var(--orb-blur)) hue-rotate(40deg) saturate(1.35); }
+  }
+
+  .phase-orb[data-phase="contemplate"]           { --orb-hue: 260; --orb-speed: 5s;   --orb-amp: 0.6; }
+  .phase-orb[data-phase="process_messages"]      { --orb-hue: 230; --orb-speed: 3s;   --orb-amp: 1; }
+  .phase-orb[data-phase="respond_to_messages"]   { --orb-hue: 200; --orb-speed: 2s;   --orb-amp: 1; }
+  .phase-orb[data-phase="check_contributions"]   { --orb-hue: 190; --orb-speed: 2.2s; --orb-amp: 1; }
+  .phase-orb[data-phase="implement_approved_plans"] { --orb-hue: 140; --orb-speed: 1.4s; --orb-amp: 1.2; }
+  .phase-orb[data-phase="generate_task"]         { --orb-hue: 50;  --orb-speed: 1.8s; --orb-amp: 1; }
+  .phase-orb[data-phase="evolve"]                { --orb-hue: 290; --orb-speed: 3s;   --orb-amp: 1.4; }
+  .phase-orb[data-phase="dream"]                 { --orb-hue: 210; --orb-speed: 9s;   --orb-amp: 0.3; }
+  .phase-orb[data-phase="ensure_main_branch"],
+  .phase-orb[data-phase="check_merged_plans"],
+  .phase-orb[data-phase="process_rejected_plans"] { --orb-hue: 220; --orb-speed: 4s; --orb-amp: 0.4; }
+  .phase-orb[data-phase="budget_throttle"]       { --orb-hue: 30;  --orb-speed: 6s;   --orb-amp: 0.25; }
+  .phase-orb[data-phase="idle"],
+  .phase-orb[data-phase="offline"]               { --orb-hue: 250; --orb-speed: 6s;   --orb-amp: 0.2; }
+
+  /* Pattern variants — subtle tweaks layered on top of per-phase tuning. */
+  .phase-orb.pattern-inward .orb-particles    { animation-direction: reverse; }
+  .phase-orb.pattern-outward .orb-ring        { animation-direction: reverse; }
+  .phase-orb.pattern-structured .orb-core     { animation-timing-function: steps(6, end); }
+  .phase-orb.pattern-shimmer .orb-core        { animation: orb-pulse var(--orb-speed) ease-in-out infinite,
+                                                            orb-shimmer calc(var(--orb-speed) * 2) ease-in-out infinite; }
+  .phase-orb.pattern-drift .orb-particles     { animation-duration: calc(var(--orb-speed) * 3); }
+  .phase-orb.pattern-drift .orb-particles::before,
+  .phase-orb.pattern-drift .orb-particles::after {
+    width: calc(4px * var(--orb-particle-scale));
+    height: calc(4px * var(--orb-particle-scale));
+    margin: calc(-2px * var(--orb-particle-scale)) 0 0 calc(-2px * var(--orb-particle-scale));
+  }
+  .phase-orb.pattern-housekeeping .orb-core   { opacity: 0.85; }
+  .phase-orb.pattern-housekeeping .orb-ring   { opacity: 0.6; }
+
+  .phase-caption {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.78em;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    min-height: 1em;
+    margin-bottom: 24px;
+    transition: opacity 0.3s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .phase-orb,
+    .phase-orb * {
+      animation: none !important;
+    }
+  }

@@ -1,0 +1,1046 @@
+# Maestro Configuration — base defaults (committed to repo)
+# Environment overlays: maestro.{env}.toml (selected via MAESTRO_ENV env var)
+# Priority: maestro.toml < maestro.{env}.toml
+# Values are base defaults. A [production: …] tag marks a key maestro.production.toml overrides; the tag names the production value.
+# Secrets remain in environment variables (see CLAUDE.md for the list).
+
+[paths]
+workspace = "."           # Git repository root (relative to cwd or absolute; ~ expanded)
+memory_dir = "data"       # Persistent state directory (relative to cwd / repo root)
+sqlite_state_enabled = false  # Route the candidate-task queue (SqliteTaskQueue), per-SDK-call cost samples (SqliteCostSampleStore), the deed ledger (SqliteDeedLedger), the owned-backlog snapshot ledger (SqliteOwnedBacklogLedger), the PR-admission provenance ledger (SqlitePrProvenanceLedger), the obligation-fork marker ledger (SqliteObligationForkLedger), the fetch-truth marker ledger (SqliteFetchTruthLedger), the preflight-pass ledger (SqlitePreflightPassStore), the dropped-directive replay ledger (SqliteDroppedDirectiveLedger), the settled-verdicts pre-filter (SqliteSettledVerdictsLedger), the stand-down verdict ledger (SqliteStandDownVerdictLedger), the unconfirmed-own-landing first-seen sidecar (SqliteUnconfirmedOwnLandingStore), the orphaned-cure first-seen sidecar (SqliteOrphanedCureStore), the impact-review surfaced-set sidecar (SqliteImpactReviewSurfacedStore), the mergeable-flip serviced-marker ledger (SqliteMergeRequestServicedStore), the on-settlement record-reconciler provenance ledger (SqliteSettlementReconciliationLedger), the owned-lever-attempts ledger (SqliteLeverAttemptsLedger), the audit-history ledger (SqliteAuditHistoryLedger), the rejection-history ledger (SqliteRejectionHistoryLedger), the question-resolution ledger (SqliteQuestionResolutionLedger), the gate-activation trace ledger (SqliteGateActivationLedger), the prediction sensor ledger (SqlitePredictionLedger), the version-archive ledger (SqliteVersionArchiveLedger), the per-PR remediation ledger (SqlitePRLedger), the per-PR remediation-repetition tracker (SqliteRemediationTrackerStore), the escalation-standdown ledger (SqliteEscalationLedger), AND the conscious-episode ledger (SqliteConsciousEpisodeLedger) through memory_dir/state.db instead of task_queue.json / cost_samples.jsonl / deed_ledger.jsonl / owned_backlog_ledger.jsonl / pending_pr_provenance.jsonl / obligation_fork_markers.jsonl / fetch_truth_markers.jsonl / preflight_passes.json / dropped_directives.jsonl / settled_verdicts.jsonl / stand_down_verdicts.jsonl / unconfirmed_landing_first_seen.json / orphaned_cure_first_seen.json / impact_review_surfaced.json / mergeable_merge_requests.json / settlement_reconciliations.jsonl / lever_attempts.jsonl / audit_history.jsonl / rejection_history.jsonl / question_resolutions.jsonl / gate_activations.jsonl / predictions.jsonl / version_archive.jsonl / pr_ledger.json / remediation_tracker.json / escalation_handoffs.json / conscious_episodes.jsonl; the JSONL/JSON sidecars are retained as flag-off rollback. Also builds the persistent journal-search FTS5 index (SqliteJournalSearchIndex) in state.db — a derived cache that tops itself up with only newly-appended entries instead of rebuilding per search, over the append-only journal.jsonl (retained unchanged as source of truth and flag-off rollback) (proposal 106, default off)
+
+[github]
+repo = ""                 # GitHub repo in owner/repo format (empty = not configured)
+reviewer = ""             # GitHub username to request PR reviews from (empty = no reviewer)
+issues_page_size = 5      # Issues fetched per gh API call (page size, >= 1)
+
+# Work target (proposal 107) — the single owner for which repo, which gate path
+# atoms, and which framing the loop points its effort at. Every facet below
+# defaults to Maestro's own values, so a build with this section unchanged is
+# byte-for-byte identical to current behaviour. Every facet is live:
+# repo_workspace / github_repo redirect the git / GitHub clients (sites still
+# bound to paths.workspace are not redirected — see
+# tests/test_work_target_chokepoint.py); focus_profile = "external_delivery"
+# suppresses the evolve, audit_self_model and curate_pending_plans phases;
+# task_framing selects the task-generation and evolution prompts.
+# focus_profile / task_framing must be "self_evolution" or "external_delivery".
+[work]
+focus_profile = "self_evolution"    # How much the loop favours delivery over introspection
+task_framing = "self_evolution"     # How task-generation / evolution prompts frame work
+repo_workspace = ""                 # Git checkout to operate on (empty = fall back to paths.workspace)
+github_repo = ""                    # PR target in owner/repo format (empty = fall back to github.repo)
+gate_source_path = "maestro/"       # Source-tree atom the quality gates lint/type-check
+gate_tests_path = "tests/"          # Tests atom the quality gates run
+gate_lint_extra_paths = ["scripts/"] # Extra atoms ruff/mypy cover (never pytest), matching CI;
+                                     # retargeting source/tests at another package must also set this (e.g. [])
+
+[timeouts]
+# All values in seconds
+git = 30                # General git operations (checkout, add, commit, push)
+git_quick = 10          # Fast git operations (rev-parse, status)
+selfcheck = 900         # Quality gates (ruff, mypy, pytest); the floor a derived
+                        # pytest budget starts from. Must fit a clean full suite.
+# Hard cap on the per-run pytest budget the gate execution lease may derive
+# (`[loop] gate_budget_lease_owned_enabled`). `selfcheck` stays the ruff/mypy
+# ceiling and the floor a derived deadline starts from; this bounds how far a
+# repeatedly-killed suite may escalate, so a genuine hang still dies. The
+# ordering `selfcheck <= selfcheck_max < [sdk] tool_stream_idle_timeout_seconds`
+# is enforced in `Config._check_cross_field_and_subtable`: the idle net must sit
+# above the largest budget one gate run may spend, or the stream is declared
+# stalled before the suite can answer.
+selfcheck_max = 1350    # Hard cap on a lease-derived pytest budget
+implement = 120         # git push during evolution implementation
+pr_creation = 60        # PR creation via gh CLI
+gh = 30                 # GitHub CLI operations (issues)
+shutdown = 10.0         # Dashboard graceful shutdown
+
+[dashboard]
+port = 8420
+host = "0.0.0.0"
+rejection_reason_max = 2000   # Max length of plan rejection reason
+max_page_size = 500           # Max items per API page
+log_buffer_size = 500         # In-memory log ring buffer size
+trust_forwarded_proto = false # Set true when behind a TLS-terminating reverse proxy
+# Public-API hardening — applied by PublicApiMiddleware to every /api/public/* route.
+# trust_forwarded_for: read X-Real-IP (set by nginx to $remote_addr) as the
+#   rate-limit key (production overlay sets this true; nginx is the sole trusted hop).
+# public_api_rate_limit_per_minute: per-(ip, path) request cap, sliding 60s window.
+# public_api_cache_max_age_seconds: Cache-Control max-age / s-maxage; SWR is 2x.
+# security_headers_enabled: master switch for SecurityHeadersMiddleware (CSP etc.).
+trust_forwarded_for = false  # [production: true — operational]
+public_api_rate_limit_per_minute = 60
+public_api_cache_max_age_seconds = 30
+security_headers_enabled = true
+# Authenticated-mutation rate limits (proposal 022) — per client IP, sliding
+# 60s window, enforced by MutationRateLimitMiddleware only when auth is on.
+# login_rate_limit_per_minute: POST /login attempts (brute-force guard).
+# approval_rate_limit_per_minute: plan/publication approve+reject POSTs.
+login_rate_limit_per_minute = 10
+approval_rate_limit_per_minute = 30
+account_ui_v2 = true           # Gates the v2 account-dashboard navigation shell (proposal 122); false rolls back to the flat pill nav
+
+[loop]
+interval = 60           # Seconds between autonomous loop iterations
+evolve_every = 5        # Run evolution cycle every N iterations
+task_every = 3           # Generate self-directed task every N iterations
+task_queue_max = 8       # Soft cap on candidate-task queue; generate phase stops enqueueing at cap
+dream_every = 10         # Run the dream phase's zero-SDK passes (phase-cost report, value reconciliation, brief expiry, archive) every N iterations (0 disables)
+audit_self_every = 10    # Mechanical self-audit: rules over (tasks, errors, self-model) every N iterations (0 disables)
+contemplate_every = 1    # Run the priced contemplation phase (introspect + update_self_model) every N iterations (1 = every iteration, 0 disables)
+# Pending-plan curation (proposal 060). Turns on an autonomous LLM phase that
+# rewrites stale pending_review plans BEFORE human review — opt-in by design.
+# Both keys must be set (curate_enabled = true AND curate_every > 0) to enable.
+# Results surface via the dashboard's existing "Refined:" column (no UI change).
+curate_every = 0         # Refine oldest unrefined pending_review plan every N iterations (0 disables)
+curate_enabled = false   # [production: true — operational] Master switch for the curate_pending_plans phase (autonomous plan rewrite)
+curate_min_plan_age_hours = 0.0  # Grace period (float hours) a fresh plan must age past before curation may touch it (0 = no delay)
+plan_feedback_enabled = false  # [production: true — canary, proposal 145] Proposal 145: curate plans with unaddressed reviewer feedback first (bypasses the grace period); the curator must answer the feedback, and a 3-strike release frees what it cannot act on; also fires the curate phase off-cadence while a pending plan holds unaddressed feedback
+curate_skip_serviced_enabled = false  # When true, select_curation_target excludes plans already serviced once (refined_at OR last_curated_at set) from the normal curation lanes, so curate_pending_plans takes its zero-cost None return even after a serviced plan's content or feedback changes (the curated_hash skip already drops unchanged plans). The reviewer-feedback priority lane is exempt.
+# Duplicate-pending-plan guard: submit_for_review refuses to mint a new plan
+# that near-restates an unreviewed pending_review plan, reusing the zero-cost
+# content-word Jaccard machinery behind detect_restatement at this cutoff.
+duplicate_pending_plan_threshold = 0.5  # Jaccard cutoff (mirrors RESTATEMENT_THRESHOLD); > 1.0 disables the guard
+# Cluster-level extension: when this many open pending_review plans share the
+# candidate's dominant-token theme, the candidate lands obsolete instead of
+# adding a sixth themed restatement to the review pile (closes the pairwise
+# guard's blind spot to themed backlogs).
+pending_plan_cluster_threshold = 2  # Min themed pending plans before a new restatement is blocked
+# Cluster-level pending-plan stop: refuse to mint a plan when this many pending
+# plans already share its theme (looser Jaccard than the duplicate guard above).
+pending_cluster_threshold = 0.35  # Looser Jaccard cutoff for theme-cluster membership
+pending_cluster_max = 2           # Land plan obsolete once this many pending plans cluster with it (<= 0 disables)
+# Mechanical pending-plan cluster sweep: generate_task drains redundant backlog
+# by marking all-but-the-newest member of each qualifying pending cluster obsolete
+# (zero-SDK, no approval), reusing the two thresholds above. Set false to disable.
+pending_cluster_sweep_enabled = true
+# Mechanical pending-plan restatement sweep: generate_task also retires every
+# pending plan that restates a strictly-newer surviving pending plan (keeping the
+# newest of each chain), capturing each fire to lever_attempts.jsonl. Reuses the
+# duplicate_pending_plan_threshold Jaccard cutoff. Set false to disable.
+restatement_sweep_enabled = true
+# Directive-named obsolete actuator: audit_self_model (zero-SDK, runs even with
+# self_directed_tasks_enabled = false) retires the single pending plan a
+# next_task_directive names for mark_plan_obsolete, records an owned_prune deed,
+# and clears the directive. Set true to enable.
+obsolete_directive_actuator_enabled = false
+# Concept-key restatement matching: fold self-model tokens through
+# lexicon.concept_key (hyphenation + light morphology collapse) so a re-coined
+# synonym is caught as a restatement, not scored as a discovery. Set true to enable.
+restatement_concept_key_enabled = false
+# Backlog-saturation submit-block: submit_for_review hard-refuses a new pending
+# plan once the open pending_review backlog reaches this count, forcing land-or-
+# dispose before more production (caps total, not just redundant, plans).
+pending_plan_submit_block_threshold = 5  # Refuse new plans at/above this pending_review count (<= 0 disables)
+# Mechanical pending-plan expiry sweep: generate_task also auto-obsoletes every
+# pending_review plan older than this many days (disposal, not rejection — an
+# approval moves a plan out of pending_review and is the explicit hold).
+plan_review_expiry_days = 21  # Auto-obsolete pending_review plans older than N days (<= 0 disables)
+max_replans = 1          # Max re-planning attempts per task on step failure (0 disables)
+# Caps consecutive remediation slots: after this many task slots in a row served
+# from pending_pr_requests, the next slot bypasses remediation and falls through
+# to the queue head, forcing task-shape diversity (breaks remediation-monoculture
+# where unlanded PRs re-feed the scheduler every iteration). <= 0 disables the cap.
+max_consecutive_remediation = 4  # Max consecutive pending_pr_requests slots before forcing a non-remediation task (<= 0 disables)
+checkpoint_max_age_days = 7  # Startup sweep deletes task checkpoints older than this (0 disables)
+post_implement_review = true  # Run quality gates after implement(), before creating PR
+task_branch_reuse_enabled = true  # [production: false — prod-disabled, proposal 116] Proposal 116 master switch: reuse a kept task branch as an evolution-PR base via source_task_id; flag-off bases every evolution PR fresh-from-main
+planning_excludes_remediation_enabled = false  # Drop "Remediate PR #<n>:" laps from the planner's kept-branch candidates and source_task_id validation (their branch is an open PR head)
+self_directed_tasks_enabled = true  # [production: false — prod-disabled, proposal 116] Proposal 116 master switch: schedule generate_task on the task_every cadence; flag-off gates off self-directed generation while external/PR-remediation work keeps running
+generation_admission_enabled = true  # Proposal 116 step 7 (default on since the proposal-116 graduation; false restores the un-gated submission): admission gate on submit_for_review — refuse a net-new mint when the pending backlog is saturated or the candidate's self-measurement theme dominates the recent obsolete graveyard, and write one prune/land directive
+generation_admission_theme_fraction = 0.75  # Themed fraction of the recent-obsolete window at/above which the candidate's self-measurement theme "dominates" ([0.0, 1.0])
+generation_admission_window = 20  # Size of the recent-obsolete window fed to the theme-saturation metric (>= 1)
+pre_mint_generation_gate_enabled = false  # [production: true — canary, proposal 120] Proposal 120 Phase B (default off = today's behaviour): the single pre-mint owner for both self-initiated plan-mint channels (evolve()'s fuel-gated propose_plan tail and _implement_approved_plans) — consult generation_gate.may_mint_plan on the same backlog/theme inputs and, when saturated, skip that channel's work while writing one prune/land directive; the submission-side generation_admission_enabled gate stays the downstream backstop
+self_model_external_anchor_enabled = false  # [production: true — canary, proposal 120] Proposal 120 Phase C (default off = today's behaviour): anchor update_self_model's limitations_known vanity filter to external-observable capability — a limitation qualifies only if it names an external-observable capability, behaviour, or audience effect, not solely the loop's own plan-mint / PR-remediation plumbing, with that inward-plumbing case called out as vanity by example; off leaves the update_self_model prompt byte-for-byte unchanged
+# Evolution PR tending — keeps open evolution PR branches updated with
+# main (merge-only, never rebase, never force-push) so they stay
+# reviewable. Tapered reminders (48h/72h/168h) nudge Thomas on unreviewed
+# PRs. Set tend_prs_enabled=false to disable the phase entirely.
+tend_prs_enabled = true  # Master switch for evolution-PR tending phase
+tend_prs_every = 1       # Run tending every N iterations (top priority — runs every iteration by default)
+tend_bug_comments_enabled = true  # Route a remediation task when an open PR has unresolved AI 🐛 bug review comments
+tend_planless_prs_enabled = true  # Keep tending an open evolution PR even after its plan leaves 'implemented' (retired/obsolete)
+tend_main_merge_enabled = true  # [production: false — prod-disabled, proposal 128] Gate the tend phase's origin/main merge-and-push (reversible merge-queue cutover kill-switch, proposal 128); default on preserves current behaviour, flip to false alongside enabling GitHub's merge queue on main
+resolve_addressed_threads_enabled = true  # After a remediation lap delivers replies + pushes, resolve the addressed AI-finding threads (never human threads)
+gate_strip_redirections_enabled = true  # Strip shell redirections (2>&1, > out) from a task-execution Bash segment before the action gate reads a git-push refspec, so an output-captured own-branch push is no longer mis-parsed and fail-closed (default on — stripping only converts a fail-closed deny of an owned non-force push to allow; main/master, force-pushes, out-of-set and unparseable pushes stay denied; rollback: flip to false) (proposal 096)
+user_request_blocks_standdown_enabled = true  # Refuse to author either stand-down verdict for a PR while an unconsumed pending_user_requests message names that PR (#NNNN / PR NNNN)
+user_pr_message_remediation_enabled = true  # Route a human message naming an open own PR as a full PR-remediation task, releasing that PR's stand-down suppressions first
+pr_ready_for_review_notify_enabled = true  # Telegram-ping Thomas when a PR is synced with main, comments addressed, and ready to re-review
+conflict_resolution_cooldown_hours = 24.0  # Min hours between conflict-directive re-routes on the same PR
+quality_fix_cooldown_hours = 24.0  # Min hours between quality-gate-directive re-routes on the same PR (after a tend-cycle merge)
+cooldown_backoff_base_hours = 1.0  # First rung of the bounded backoff both tend cooldowns decay through on an unchanged signature; doubles per genuinely-bounced attempt — a bypassed, pushing or unmeasurable lap consumes no rung — capped at the cooldown's own hours ceiling (proposal 137)
+cooldown_signature_keying_enabled = false  # [production: true — canary, proposal 137] Key both tend cooldowns to the signature they were stamped against — (branch head, origin/main base, CI rollup) for the conflict cooldown, (branch head, CI rollup) for the quality-fix one — so a provably-changed component releases the cooldown before the hours window is consulted (proposal 137); off keeps the pure wall-clock windows
+owed_act_binding_enabled = false  # [production: true — canary, proposal 137] Bind the two remaining give-up decisions to the owed act the PR presents — audit rule 21 drops its 'or gh pr close #N' clause while the PR is code-owed, and assess_pr_salvage holds the disposal veto on code-owed work inside the reconcile budget (proposal 137); off keeps today's finding text and salvage verdict table
+# Version archive — snapshots rolling metrics per merged evolution PR.
+# The window controls how many recent tasks feed the rolling metrics.
+# Disabling makes _snapshot_version() a no-op.
+version_archive_enabled = true
+version_archive_window_iterations = 10
+self_review_max_rounds = 2    # LLM plan-aware self-review rounds after implement() (0 disables)
+self_review_own_session_enabled = false  # [production: true — canary, proposal 140] each self-review round on its own high-effort session, not the implementer's
+# Post-implementation quality-gate / auto-fix loop. After implement() + self_review,
+# run_quality_gates() is checked; on failure the fix step routes through
+# converge_to_green (see below), which grinds auto_fix() while the failing-gate set
+# strictly shrinks and demotes the plan to 'failed' only on a no-progress stall. A
+# 'failed' plan is retried by _implement_approved_plans up to
+# max_implementation_attempts cross-iteration times before a terminal GitHub issue
+# is opened. 'failed' is distinct from 'rejected' — it does NOT trigger
+# rejection-learning or the 7-day cooldown.
+auto_fix_max_rounds = 3          # Raises the convergence ceiling floor (max with gate_convergence_ceiling); >= 0 (proposal 110)
+# Gate convergence (proposal 110). implement_plan's post-implementation fix loop
+# routes unconditionally through EvolutionEngine.converge_to_green, which keeps
+# grinding while the failing-gate set strictly shrinks (rather than stopping at a
+# fixed round cap) and stops honestly when it stalls. gate_convergence_ceiling is
+# the generous backstop that guarantees termination; auto_fix_max_rounds now only
+# raises that ceiling's floor.
+gate_convergence_ceiling = 20     # Backstop cap on convergence fix rounds (>= 1)
+# Gate observation (proposal 124). When on, run_quality_gates parses each gate
+# runner's retained output into a structured GateRunObservation (enumerated
+# failures, TIMEOUT / UNAVAILABLE named instead of "could not run") and attaches it
+# to the QualityGateResult, and a `pytest -x` probe that -x cut short (a failing
+# test or a collection abort, not a coverage-only shortfall) is re-run once without
+# -x so the whole failing set is enumerated. Off: byte-identical commands and
+# raw_output, and observation is None. No consumer reads the observation yet.
+gate_observation_enabled = false  # [production: true — canary, proposal 124] Attach a structured gate observation to QualityGateResult
+# Conscious-access workspace observation (proposal 130). On: a zero-SDK `attend`
+# phase between tend_evolution_prs and contemplate gathers candidates from
+# already-materialised facts, assembles exactly one immutable ConsciousMoment, and
+# appends one episode to conscious_episodes.jsonl (or the SQLite ledger). The moment
+# is injected nowhere — no prompt, no decision, no gate consults it. Off in base
+# (proposal 149): no moment was ever cited, so this zero-citation writer is stopped
+# in one reversible base change (no prod-only canary, for the same reason it was
+# turned on everywhere); true restores the burn-in. Off: attend never runs.
+conscious_workspace_observe_enabled = false
+# Conscious-access workspace broadcast (proposal 130). On: the selected moment is
+# rendered to a bounded block and prepended, per call, to the contemplation and
+# evolution priced-introspection prompts (via introspect's workspace_moment param),
+# and each delivery records a BroadcastReceipt. Advisory only — prompt text, no
+# capability, no plan approval, no gate. Off (default): introspect receives an empty
+# block and every prompt is byte-identical. A no-op unless the observe flag is also
+# on (no attend pass means no moment to broadcast).
+conscious_workspace_broadcast_enabled = false
+# Gate execution lease (proposal 126). On (default): `maestro gate-lease -- <cmd>`
+# measures the host — the tighter of the host figure and the cgroup limit, so a run
+# inside a memory-/cpu-limited container sizes to the container, not the host it
+# shares (#3760) — counts in-flight gate runs, plans a bounded worker grant + slot
+# budget, and holds a concurrency slot for the child's lifetime so concurrent
+# full-suite runs cannot oversubscribe a small host. Off (the flag-off rollback):
+# the wrapper takes no slot and runs the child at today's `auto` width. The shell
+# runner, the three hand-run command docs, and the in-process loop gate readers
+# (run_quality_gates, run_gate_check, preflight) route their gate sequence through
+# the shared lease_for_gate_run seam.
+gate_lease_enabled = true
+# Apply the lease's host memory reserve (SYSTEM_RESERVE_MIB) only to a *host*-bounded
+# headroom reading. That reserve holds back memory for the OS and the non-agent
+# baseline, which live outside a loop cgroup — and a cgroup's `memory.max -
+# memory.current` figure has already netted that baseline out, so subtracting it
+# again floors the grant at one worker inside a small container. On: the reserve is
+# omitted when the measured headroom was cgroup-bounded. Off (default): today's
+# behaviour exactly. Every gate_runs.jsonl row records `available_mib` and
+# `bounded_by` either way, so the flip is made against measured evidence.
+gate_lease_cgroup_reserve_enabled = false
+# Cap how many gate runs the lease admits at once. Without it the slot budget is
+# the core count, so concurrent full suites on one host slow each other until the
+# wall-clock per-test pytest-timeout budget kills them (the non-clean rate climbs
+# with observed in_flight). On: at most max(1, cores // 4) runs are admitted and
+# the rest queue up to 600s — long enough to outlast one suite — before failing
+# open. It binds only out-of-process runs (`maestro gate-lease` / `gate-check`);
+# the loop's own in-process and preflight runs keep today's budget and 30s wait,
+# since a 600s queue there would block the event loop. In the 4-core loop
+# container the cap still shrinks the wrapper budget to one slot, so a subagent's
+# queued wrapper run can outlast its Bash tool timeout. Judge it by
+# gate_runs.jsonl's in_flight / admission / wait_seconds and
+# `maestro measure-gate-contention` (its p50 wait column).
+gate_lease_admission_cap_enabled = true
+# Proposal 134 gate fit: let the gate execution lease own the pytest run's *budget*
+# as well as its width. On: the grant carries a `deadline_seconds` derived from the
+# telemetry ledger at that same granted width — when the most recent in-process run
+# at this width was killed at its own deadline the next one escalates by 1.5x,
+# floored at `[timeouts] selfcheck` and capped at `[timeouts] selfcheck_max`, so a
+# suite that genuinely needs more than the constant buys its way up to a fit instead
+# of producing censored `tests:TIMEOUT` readings forever. Off (default): every gate
+# runs under `selfcheck`, byte-identical to today.
+gate_budget_lease_owned_enabled = false  # [production: true — canary, proposal 134]
+# Proposal 134 gate fit: let the gate execution lease own *which suite* a
+# post-implementation fix-loop round runs. On: `converge_to_green`'s inner rounds
+# run only the test modules the changed files can reach (`maestro gate-scope`'s
+# oracle) with `--no-cov`, so a round costs what the diff costs rather than what
+# the suite costs; the pre-loop read stays full, and a green narrowed round is
+# certified by one fresh full-scope, with-coverage read before the loop may return
+# `green`. Off (default): every round runs the whole suite with coverage,
+# byte-identical to today.
+gate_scope_impacted_enabled = false
+# Proposal 133: consult the gate-runnability oracle before an implementation attempt
+# is spent. On: the approved-plan selector refreshes the verdict once per iteration
+# and, when the local gate provably cannot reach a verdict (a missing first-party
+# sibling, a suite pytest cannot collect, a suite that cannot finish in its budget),
+# implements nothing that iteration — each plan it would have selected keeps its
+# `approved` status and its `failure_count`, stamped with the verdict's fingerprint,
+# so a broken environment stops burning the attempt budget on a red no diff can
+# clear. Thomas is asked once per distinct fact. Off (default): no probe is issued
+# and selection is byte-identical to today.
+gate_environment_oracle_enabled = false  # [production: true — canary, proposal 133]
+# Host-scoped slot-lock directory the wrapper probes. Shared across every checkout
+# on a host so the lease bounds *cross-checkout* concurrency; `~` expands to $HOME.
+# An operator or container can redirect it. Not `memory_dir/gate_slots`, which this
+# repo's `memory_dir = "data"` would scope privately per checkout. The loop container
+# mounts only `.:/workspace`, so this default `~/.maestro/gate_slots` is
+# container-private: to share slots between loop-side and host interactive runs,
+# bind-mount this directory or point the key at a path under `/workspace` (see
+# docs/deployment.md).
+gate_lease_slot_dir = "~/.maestro/gate_slots"
+# Host-capacity sensor (proposal 125). On: contemplate (and the loop's hoisted
+# iteration-start snapshot it reuses) reads live host load per core, memory and
+# swap residency, and free disk on the Docker root, folds any saturated resource
+# into the health summary, and drops the "host capacity unmeasured" blind spot.
+# Off (default): no reading is taken and the health summary is byte-identical to
+# today; blind_spots still names host capacity as an unmeasured gap. Calibrating
+# the thresholds is a separate later flip.
+host_capacity_sensor_enabled = false  # [production: true — canary, proposal 125]
+# Runtime contract enforcement (proposal 141 step 8). preflight and every
+# agent-building command (loop, serve, run, ...) fold
+# deploy/runtime_contract.toml against the live environment (offline). On:
+# a required violation fails preflight / startup, naming the entry. Off
+# (default): each violation is logged at WARNING and startup continues.
+runtime_contract_enforced = false
+max_implementation_attempts = 3  # Max cross-iteration retries of a single failed plan (>= 1)
+# Attempt-disposition oracle (proposal 131, RESUME arm). On: a stalled-but-
+# strictly-progressing quality-gate convergence preserves its evolution branch,
+# carries the prior attempt's failing-identity baseline into the next
+# implementation prompt, and re-admits to continue instead of cold-restarting —
+# bounded by max_resume_attempts so a plan that never converges still terminates.
+# Off (default): the implementation path and prompts are byte-identical to today.
+attempt_disposition_enabled = false  # [production: true — canary, proposal 131]
+# Resume budget for the RESUME arm: max times a plan may preserve its branch and
+# continue a progressing stall before the oracle degrades to the ordinary demote.
+# Read only when attempt_disposition_enabled is on.
+max_resume_attempts = 2  # Max branch-preserving resumes of a single progressing plan (>= 1)
+# Grounded contemplation (proposal 132). On: the priced contemplation (slot-A)
+# reflection session is built with the bounded read-only reflection_retrieval
+# surface instead of tools=[], so a bet can pull the fact it hinges on. Off
+# (default): the session stays tools=[] and byte-identical. Read by
+# MaestroAgent._grounded_reflection_active (which degrades under
+# budget_throttle_active) and _build_contemplation_session_options; enabled as a
+# production canary in maestro.production.toml (declared in flag_lifecycle.py's
+# PROD_ONLY_CANARIES), default-off everywhere else.
+grounded_reflection_enabled = false  # [production: true — canary, proposal 132]
+# Grounded planning (proposal 143). On: the single-use sessions of the callers in
+# grounded_planning_callers carry the bounded read-only tree surface so the
+# planner reads before it claims; requires [sdk] single_use_evolution_calls_enabled.
+# Off (default): byte-identical. Enabled as a production canary in
+# maestro.production.toml (declared in flag_lifecycle.py's PROD_ONLY_CANARIES),
+# default-off everywhere else.
+grounded_planning_enabled = false  # [production: true — canary, proposal 143]
+# Which planner callers the flag grounds — a subset of propose_plan,
+# propose_plan_chain, curate_pending_plans (validated even flag-off). The
+# default is propose_plan alone (reflect was deleted, proposal 155 step 4); add
+# propose_plan_chain (used under multi_pr_proposals_enabled) and
+# curate_pending_plans each as its own canary once the cost tripwire holds.
+grounded_planning_callers = ["propose_plan"]
+# When on (and grounded planning active), the grounded planner's bounded tree
+# surface gains a sixth pure tool, search_rejections, backed by the rejected-plan
+# corpus evolution.py reads from memory — so the planner queries the specific
+# ideas already refused (and their reasons) at mint time, not just the aggregate
+# category counts read_reality_inventory surfaces. Prod canary (declared in
+# flag_lifecycle.py's PROD_ONLY_CANARIES), default-off everywhere else.
+grounded_planning_rejection_tool_enabled = false  # [production: true — canary]
+# Stale-repeat bet guard. On: contemplate() bans reuse of any loss condition
+# already staked at/above the repeat threshold without ever scoring 'correct' (the
+# 'comfort bet' — an always-winnable/never-scoring wager re-run verbatim) by naming
+# it in the priced-reflection prompt's do-not-reuse block, so the next bet cannot
+# verbatim-repeat a stale loser (whitespace/case-normalised matching only, not a
+# reworded restatement). Off (default): the banned set is empty and the prompt is
+# byte-identical. Read by agent.contemplate.
+stale_repeat_bet_guard_enabled = false
+# Cap on plans implemented per iteration. _implement_approved_plans selects every
+# eligible plan and processes only the first cap entries in sort order; the rest
+# drain across subsequent iterations. Default 1 bounds blast radius when a queue
+# accumulates from prior skipped iterations (budget throttle, crash-resume past
+# the phase, standby) or batch dashboard / Telegram approvals — see CLAUDE.md
+# "Self-evolution" / Implementation cap invariant.
+max_implementations_per_iteration = 1  # Max plans implemented per iteration (>= 1)
+# Experimental concurrency cap on open evolution PRs. When count >= cap,
+# _implement_approved_plans returns early and steers toward integration.
+# <= 0 disables the gate entirely.
+max_open_evolution_prs = 5
+executor_loop_detect_repeats = 3  # Abort step after N consecutive identical tool-call fingerprints (>= 2)
+executor_empty_response_retries = 1  # Retry empty SDK responses this many times before failing the step (>= 0; 0 disables)
+# Self-regulating burn-rate throttle — when the rolling-window spend rate
+# reaches max_loop_budget_usd_per_hour, the inter-iteration sleep is
+# stretched by a multiplier proportional to rate / limit (capped at
+# budget_throttle_max_multiplier). All phases keep running; only the gap
+# between iterations stretches. As samples age out of the rolling window,
+# the rate falls, the multiplier falls, and the loop returns to base pace
+# on its own — no human intervention needed. 0 = disabled.
+max_loop_budget_usd_per_hour = 0.0       # Max burn rate in USD/hour (0 = disabled)
+budget_rate_window_hours = 1.0           # Rolling window for rate computation
+budget_rate_min_cost_usd = 0.10          # Suppress throttle until >= this much has been spent in the window
+budget_throttle_max_multiplier = 60.0    # Cap on the proportional sleep multiplier (>= 1.0)
+
+# Tiered-memory archive rotation — on dream cycles, splits
+# task_history.jsonl and evolution_plans.jsonl into a hot file (records
+# newer than archive_threshold_days) and a cold sibling
+# (<file>.archive.jsonl). 0 disables rotation; both files grow unbounded.
+# An enabled value must exceed every hot-read window over the rotated
+# files — max(168h dashboard cost window, budget_rate_window_hours,
+# plan_review_expiry_days) — or startup fails validation. With the defaults
+# that floor is 21 days (plan_review_expiry_days), so 22 is the smallest
+# enabled value.
+archive_threshold_days = 0               # Days to keep in the hot file (0 = disabled, else > the floor)
+
+# Startup cooldown when the prior run crashed with a rate-limit SDK
+# error. Gives the upstream rate-limit window time to clear before the
+# new process makes its first SDK call. 0 disables.
+startup_rate_limit_cooldown_seconds = 60
+
+# Standby window — pauses all SDK calls during the given UTC hours.
+# start is inclusive, end is exclusive. Wraparound (start > end) is allowed
+# for windows that cross midnight UTC.
+standby_enabled = false        # Master switch
+standby_start_hour_utc = 13    # 1:00 PM UTC
+standby_end_hour_utc = 19      # 7:00 PM UTC
+
+# Peak-hours scheduled budget throttle. Inside the window the burn-rate
+# throttle's effective budget limit is multiplied by
+# peak_throttle_rate_multiplier (< 1.0 tightens it), so the existing burn-rate
+# sleep-multiplier fires sooner and the loop slows down. Heavy LLM phases are
+# NOT gated off by the window itself — only a genuine burn-rate breach (against
+# the untightened limit) still gates phases, exactly as off-peak. Because the
+# slowdown rides on the burn-rate machinery, it has NO effect unless
+# max_loop_budget_usd_per_hour > 0. Differs from standby (which skips the
+# entire iteration body) by design: this is "save money during peak, keep
+# working."
+peak_throttle_enabled = false                 # Master switch
+# Hours are wall-clock in peak_throttle_timezone (an IANA zone name);
+# DST transitions are handled automatically. Default targets
+# 5-11 AM Pacific Time on weekdays year-round.
+peak_throttle_timezone = "America/Los_Angeles"
+peak_throttle_start_hour = 5                  # 5 AM in peak_throttle_timezone
+peak_throttle_end_hour = 11                   # 11 AM in peak_throttle_timezone
+peak_throttle_weekdays_only = true            # Mon-Fri (in peak_throttle_timezone)
+peak_throttle_rate_multiplier = 0.5           # Peak budget = limit * this (< 1.0 tightens)
+
+# Long-context opt-in — when models.long_context is set AND this flag is
+# true, the per-plan implementation session runs on the long-context
+# model and bash output capture uses a larger cap so verbose build/test
+# logs survive into the next step's prior_context. Disabled by default
+# because it raises cost on every implementation step. The self_review
+# and conflict-resolution call sites read models.long_context directly
+# (no separate per-site flag) — they fire rarely enough that always-on
+# long-context there is acceptable when models.long_context is set.
+long_context_implementation_enabled = false
+
+# Experiment cadence — after every N recorded tasks, the generation
+# prompt mechanically requires a hypothesis-driven experiment where
+# success means "data collected and analyzed" regardless of confirmation.
+# The experiment lands on the task produced once the recorded count
+# reaches a multiple of N. Existing short-circuit gates (audit-stall,
+# cost-risk) take precedence. Cadence is measured against the hot
+# task_history.jsonl count, so it resets after each tiered-memory archive
+# — "after every N recorded tasks since the last archive," not absolute
+# lifetime.
+experiment_cadence = 5           # Inject experiment-mode prompt after every N recorded tasks (>= 1)
+
+# Promotable-backlog pressure — when successful task branches not yet
+# cited by any plan's source_task_id exceed this threshold, a PROMOTABLE
+# BACKLOG section is injected into the task-generation prompt listing
+# top-3 candidates. Experiment priority — revert or upgrade to gate if
+# backlog does not decrease within 30 iterations.
+promotable_backlog_threshold = 3  # Uncited successful branches needed to trigger prompt injection (count >= this; value >= 0)
+
+# Promotable-backlog directive bridge — directive-bridge complement to the
+# advisory backlog prompt hints. When the uncited-branch count reaches
+# promotable_backlog_threshold and no directive is pending, auto-fills
+# next_task_directive naming the oldest uncited branch so the signal
+# actuates behavior. Self-extinguishing. Experimental — revert if the
+# backlog does not decrease within 10 iterations.
+promotable_backlog_directive_enabled = true  # Master switch
+
+# Promotable-branch hint — surfaces successful unmerged task branches
+# in the task-generation prompt so the LLM can propose branch-promotion
+# tasks (integration over creation). Zero SDK cost context injection.
+# Experiment — may be reverted if promotion rate is negligible.
+promotable_branch_hint_enabled = true   # Master switch
+promotable_branch_max_shown = 5         # Max branches shown in prompt (>= 1)
+
+# Prior-task context injection — injects most recent task's findings
+# (any outcome) into task-generation prompt for compounding.
+prior_task_context_enabled = true       # Master switch
+
+# Integration cadence — when no task in the last N tasks performed
+# integration work (triage, promote branch, etc.), injects a concrete
+# directive into next_task_directive before the LLM call. Mechanical
+# constraint-steering: self-extinguishes once integration happens.
+integration_cadence = 5                 # Window size for integration-work lookback (>= 1)
+
+# Investigation-streak directive — when the last N consecutive tasks are all
+# investigation-shaped (measurement/other), auto-fills next_task_directive
+# requiring construction-shaped work. Self-extinguishing on one construction task.
+investigation_streak_threshold = 3      # Consecutive investigation tasks before redirect (>= 1)
+investigation_streak_enabled = true     # Master switch
+
+# Investigation-rate directive — windowed complement to the streak check. When
+# the fraction of investigation-shaped tasks in the last
+# investigation_rate_window tasks exceeds investigation_rate_threshold,
+# auto-fills next_task_directive with a construction requirement. Catches a
+# distributed investigation pattern (mechanical tasks interleaved) the
+# consecutive-streak check misses. Self-extinguishing. Experimental.
+investigation_rate_window = 10          # Window of recent tasks measured (>= 1)
+investigation_rate_threshold = 0.4      # Investigation fraction above which the directive fires [0.0-1.0]
+investigation_rate_enabled = true       # Master switch
+
+# Branchless-streak directive — when the last N consecutive tasks all produced
+# no branch (analysis-only work), auto-fills next_task_directive forcing the
+# next task to target specific code files and produce a branch with file
+# changes. Branch field is the proxy for code-change. Self-extinguishing on one
+# branch-producing task. Experiment priority — may be reverted.
+branchless_streak_threshold = 3         # Consecutive branchless tasks before redirect (>= 1)
+
+# Readmission→construction directive bridge — actuates the landed
+# measure_pr_readmission_rate sensor. When already-merged PRs keep re-lapping
+# as remediation tasks at a rate at/above readmission_construction_ratio_threshold
+# and no higher-precedence gate set a directive, auto-fills next_task_directive
+# forcing the next task into a construction shape (build something that lands)
+# rather than another remediation lap. Lowest directive precedence; self-
+# extinguishing via the one-shot clear-on-accepted-task. Experimental.
+readmission_construction_directive_enabled = false  # Master switch (default-off)
+readmission_construction_ratio_threshold = 0.5      # Readmission rate at/above which it fires [0.0-1.0]
+
+# Remediation repetition gate — after N consecutive no-op remediations of the
+# same PR, _tend_single_pr stops re-routing until the branch receives new
+# commits. Experimental.
+remediation_noop_threshold = 2          # Consecutive no-ops before blocking (>= 1)
+remediation_noop_gate_enabled = true    # Master switch
+
+# Costume-signature dequeue gate — when a PR dequeued for remediation has
+# already recorded N or more "partial" laps whose summary carries the
+# "awaiting tend push" marker (the documented "resolved on branch" costume),
+# zero-cost-skip the next lap as a partial no-op and escalate once to
+# Thomas/Tend instead of re-lapping. Ordered after the merge-block gate.
+branch_resolved_gate_enabled = true            # Master switch
+branch_resolved_repetition_threshold = 2       # Branch-resolved partials before skip (>= 1)
+
+# Conflict-aware merge-block classification — when the merge-block gate resolves
+# a PR to BEHIND_MAIN, probe the merge locally (in-memory git merge-tree against
+# origin/main) instead of trusting GitHub's flapping mergeable field. A
+# behind-AND-conflicting branch is reclassified CONFLICTING and routed to real
+# remediation rather than skipped as Tend-clearable.
+merge_block_local_probe_enabled = true         # Master switch
+
+# PR-ledger attempt budget — maximum remediation attempts per origin-head SHA.
+# Head movement resets the budget; exhausted budget latches PR as stuck.
+pr_remediation_max_attempts_per_head = 3       # Attempts per head before stuck (>= 1)
+
+# Per-PR lap budget across ALL heads (proposal 080 Phase 3). Counts cumulative
+# remediation laps that landed nothing per the host-API merge oracle; head
+# movement does NOT reset it. At budget, Tend delivers one merge-or-close
+# handoff, writes a durable pr_number-keyed standdown, and stops minting laps
+# for that PR until the host reports it merged/closed. 0 disables the standdown.
+pr_remediation_lap_budget = 6                  # Cumulative unlanded laps before standdown (>= 0; 0 disables)
+
+merge_truth_ttl_seconds = 300                  # Proposal 087: max age (s) a memoized MergeTruth may author a verdict before is_pr_settled re-observes (>= 0; 0 always re-observes)
+prestamp_merge_truth_gate_enabled = false      # [production: true — canary, proposal 087] Proposal 087: downgrade a remediation success naming #N to partial at write time when is_pr_settled reports it unmerged (default off)
+observed_ready_standdown_enabled = true        # Proposal 089: dequeue-evict an open PR whose every code-clearable blocker is clear with a zero-cost partial [ready] stand-down (default on)
+ci_pending_hold_dequeue_enabled = true          # Yield the remediation slot (PR left queued, no session/eviction/stand-down) for an owned open PR whose sole live blocker is CI still running — no conflict, no failing gate, no unaddressed AI thread — so CI concludes on its own clock (default on)
+ci_pending_green_handoff_enabled = false      # #3630: one-shot green-handoff arm on the CI-pending hold — when CI-pending is the sole live blocker, run the demanding local gates (ruff → mypy) and on all-passed deliver one merge-or-close handoff + pr_number-keyed stand-down before yielding as today (default off)
+salvage_before_disengage_enabled = true        # Proposal 094: gate both stand-down writers on the pure pr_salvage oracle — refuse to stand down an open own PR with a code-clearable blocker whose work is not disposable; also activates the progress-exhaustion-gated merge-or-close handoff (default on)
+mergeable_merge_request_enabled = false        # Mergeable-flip actuator: at record time, send exactly one named merge-request (via deliver_handoff) for a PR-remediation verdict whose PR is clean-but-unlanded and whose sole blocker is external+mergeable-terminal (AWAITING_APPROVAL; the wired readiness caller never emits AWAITING_PUSH), keyed idempotent on a (pr, head_sha) serviced marker (default off)
+frame_discharge_bind_enabled = false           # Proposal 112: frame–discharge costume cap — at record time, cap a self-directed task's success to partial when its goal is investigation-framed but its discharge is tracked construction (a kept branch), via frame_discharge.assess_frame_discharge + bind_costume_discharge_to_partial in run(); domain-disjoint from the §5d landing authority (default off)
+wip_primacy_enabled = true                     # Proposal 092: highest-precedence block gate — finish an open own PR with a self-clearable blocker (CONFLICTING/THREADS_UNRESOLVED) before starting new work (default on)
+refutable_standdown_enabled = false            # [production: true — canary, proposal 135] Proposal 135: third standdown release path — drop a handoff-ready latch the live owed-act reading refutes (e.g. a sibling merge turned the handed-off PR CONFLICTING), composed from facts the tend walk already measured (default off)
+standdown_refutation_release_cap = 2           # Proposal 135: budget for the refuted-release path — how many times one PR's handoff-ready latch may be released by refutation (each release withdrawing its own stand-down message) before the latch becomes permanent and one terminal message says so once
+owned_act_preempt_enabled = false              # Owned-act preemption of the stalled-remediation yield slot: when the rule-18 owned-act-drought predicate is active (zero owned terminal acts in-window AND a prunable pending_review backlog), a stalled pending_pr_requests head that would yield its slot to the next non-stalled remediation entry (#2837) is instead redirected to the owned mechanical prune (sweep_clustered/restatement_pending_plans) so a stuck cycle moves net pending_review instead of re-lapping an externally-addressed PR; reuses the existing drought predicate (self-extinguishes on one owned act in-window) and sweep. Setting this false restores the byte-identical yield-to-next-remediation selection (default off, experimental)
+multi_pr_proposals_enabled = false             # Proposal 118: chain-emission arm of multi-PR evolution proposals. When true, evolve() routes the gap block through propose_plan_chain — an intent too large for one PR is decomposed into an ordered chain of thin slice plans owned by one EvolutionProposal, and only the head (phase_index 0) slice is submitted for the usual per-slice human review while the rest persist dormant ("sliced" status); a single-PR intent (or fewer than two valid slices) collapses to the lone-plan path. Setting this false keeps evolve() calling propose_plan → submit_for_review exactly as before (default off, experimental)
+unwinnable_race_re_entry_threshold = 3         # Proposal 099 (step 8): the per-PR base-advance re-entry count at/above which the unwinnable-race heads-up fires (int >= 1). Always read — _audit_self_model escalates unconditionally (proposal 099 flags collapsed per proposal 117)
+require_claude_md_update = false               # Proposal 108: make the CLAUDE.md-maintenance mandate opt-in. When true the evolution prompts (propose_plan/implement/self_review) and the planner's doc-update nudge carry the legacy hard mandate ("Every evolution MUST update CLAUDE.md"); when false (default) they carry the soft conditional guidance already codified in the Evolution Protocol ("update CLAUDE.md only if an invariant changed"). The loop never reads CLAUDE.md at runtime, so the mandate only manufactured cap-vs-mandate churn (default off)
+session_landing_enabled = false                # Post-session mechanical landing actuator: after a remediation session and before verdict composition, mechanically commit+push gate-clean working-tree edits on the owned maestro/{task,evolve}/* branch (green-gated, rewind-on-red, owned+oracle-gated), then ground the verdict on the post-push is_pr_settled read (default off)
+obligation_fork_floor_enabled = false          # PR #3211: wire the obligation-fork verdict floor into run() — §4c records an obligation-fork marker (git rev-parse HEAD vs origin/<pr_branch>) beside the fetch-truth marker, and §4e passes owned_awaiting_push (derived from classify_blocker_ownership on this lap's merge-block) to gate_remediation_verdict, so its [fork-missing]/[push-owed]/fetch-gated pass-through arms fire on an owned unpushed head. Default off: the gate is called without the flag and no fork marker is written, keeping the floor inert until the pending push actuators co-activate it
+owned_committed_push_actuator_enabled = true   # Committed-but-unpushed push actuator: in _record_remediation_outcome, mechanically fire the owed git push on a gate-clean committed owned head ahead of origin/<pr_branch> under an AWAITING_PUSH blocker (the committed-work sibling of the always-on uncommitted-edit arm). Green-gated (RED reset-to-origin rewind, never a red head), oracle-gated, delivery bound to a same-turn verify_push_advanced_remote_head read, self-extinguishing once the remote catches up. Default on (promoted): flip false to restore the legacy path where the push surfaces only as an OWNED_PUSH_AVAILABLE marker
+progress_aware_lap_budget_enabled = false      # Proposal 089: trigger the merge-or-close handoff on consecutive no-progress laps instead of gross unlanded laps (default off)
+dropped_directive_replay_enabled = false       # Proposal 090: replay a fire-or-close directive that lost the one-shot-slot race via a durable dropped_directives.jsonl ledger + lowest-precedence task gate (default off)
+
+# Uncalled-symbol quality gate — post-self-review blocking gate that
+# rejects evolution steps shipping new definitions (def/class) without at
+# least one non-test call site. Configurable threshold: steps introducing
+# more uncalled symbols than uncalled_symbol_max_allowed are failed.
+# 0 = every new symbol must be wired.
+uncalled_symbol_gate_enabled = true     # Master switch
+uncalled_symbol_max_allowed = 0         # Max uncalled new defs before gate blocks (>= 0)
+
+# Acceptance-criteria alignment — show the plan's acceptance_criteria block to
+# the code-writing phases (implement + auto-fix), not just at self-review/PR.
+criteria_alignment_enabled = true
+
+# Quiet-skip gate — pre-call blocking gate that skips the generate_task LLM
+# call when the task queue already holds items and no external requests
+# (user or PR) are pending. Creates drain-then-refill cycles: the queue
+# empties via _run_task_phase, then generate_task runs with fresher context.
+quiet_skip_enabled = true               # Master switch
+
+# Compound-scope gate — rejects self-generated tasks combining creation
+# verbs (build/add/create) with connection verbs (wire/hook/integrate)
+# via a conjunction marker. Addresses compound self-scoping that leads
+# to partial completion. Deterministic regex — zero SDK cost.
+compound_scope_gate_enabled = true      # Master switch
+
+# Investigation-observable gate — steers a self-generated task that is
+# investigation-framed (reading/tracing/understanding an existing mechanism)
+# and commits to creating a new artifact file, while naming no observable
+# instrument signal to read, toward reading and reporting a named signal
+# (.jsonl ledger, diff-stat, gate-activation count, cost-gate value) instead.
+# Post-call directive gate; empty-slot only. Deterministic regex — zero SDK cost.
+investigation_observable_gate_enabled = true   # Master switch
+
+# Plan-premise grounding — when on, propose_plan asks for a grounding probe and
+# submit_for_review confirms it against a fresh reading of the tree as its first
+# guard, recording a refuted-premise plan obsolete before a human approval is
+# spent (proposal 114). Off = byte-identical to today.
+plan_grounding_enabled = false          # [production: true — canary, proposal 114] Master switch
+
+# Generator reality grounding — when on, propose_plan declares the measured
+# problem a plan addresses and the names it newly defines, and submit_for_review
+# clears both against the reality inventory as its first guard, recording a plan
+# that re-proposes a shipped capability or cites an unmeasured problem obsolete
+# before any human is notified (proposal 136). Off = byte-identical to today.
+# Canaried only where the planner can read the measured-problem ids it must
+# cite — through 143's read_reality_inventory tool (grounded planning canary).
+generator_reality_grounding_enabled = false   # [production: true — canary, proposal 136] Master switch
+
+# Phantom-premise gate — post-call content gate that refuses a self-generated
+# goal claiming an existing defect in a .py path absent from the tree, while
+# admitting a goal whose framing is to create that path. Deterministic regex
+# over the existing missing-reference reading — zero SDK cost. Off = today.
+phantom_premise_gate_enabled = false    # Master switch
+
+[audit]
+# Stall actuator — when an [audit]-prefixed open question survives this
+# many CONSECUTIVE audit_self_model cycles without being INTEGRATEd by
+# the LLM, generate_task() short-circuits to (None, None) (zero SDK
+# cost) until the entry is removed. Threshold is in *audit cycles*, not
+# loop iterations: at default loop.audit_self_every=10 a threshold of 5
+# is ~50 iterations of grace. Opt-in: stall_block_enabled=false keeps
+# the actuator dormant for lived-data observation before flipping on.
+stall_threshold = 5            # Consecutive audit cycles before the gate engages (>= 1)
+stall_block_enabled = false    # Master switch: false leaves the soft warning behavior intact
+
+# Stale-self-model-entry rule (rule 6) — when true, the audit phase
+# cross-checks identity_statements / capabilities_known / values against
+# a rolling textual-evidence corpus (recent journal contents, task
+# goals + key_findings, prior audit findings, resolution findings) and
+# emits an [audit] stale_entry: <field>: <text> open question for any
+# entry whose content tokens never appear in a single corpus item.
+# Self-extinguishes when the LLM removes the entry. Default-on so
+# stale entries are surfaced automatically in every audit cycle.
+stale_entry_enabled = true     # Rule 6 master switch (zero SDK cost, no schema change)
+
+# Post-merge impact-review rule (rule 9) — closes the verify→remove half
+# of the full circuit. Scans the last impact_review_window VersionRecord
+# entries and surfaces an [audit] unreviewed_evolution finding for any
+# merged evolution older than impact_review_after_days that no recent task
+# has revisited (by commit-SHA reference), routing it through the
+# audit→directive bridge so its acceptance criteria get re-validated or the
+# evolution retired. A surfaced-set sidecar (impact_review_surfaced.json)
+# dedups so a version is raised once. Default-on; zero SDK cost.
+impact_review_enabled = true     # Rule 9 master switch
+impact_review_after_days = 7     # Age (days) before a merged version is review-due
+impact_review_window = 10        # Trailing VersionRecord entries scanned per cycle
+
+settlement_reconciler_enabled = true   # Proposal 097 master switch: on — each audit cycle _audit_self_model runs the standing reconciler binding recorded remediation verdicts to the is_pr_settled chokepoint via settled_verdicts.jsonl and threads the settled set into the two phantom rules as their settled_prs pre-filter, so a settled PR is skipped before each rule's merge predicate and every phantom finding self-extinguishes after settlement
+settlement_record_reconciler_enabled = true   # Proposal 103 master switch for the on-settlement record-reconciler owner: on — the registered per-store record reconcilers run over settled PRs at the merge transition and each audit cycle, cleared behind the settlement_record structural guard (the registry is the sole on-settlement store-clear door)
+
+# Orphaned-cure rule (rule 11) — the inward-turned tripwire. Flags an own
+# "implemented"-but-unmerged evolution plan that has sat unmerged for at least
+# orphaned_cure_age_cycles audit cycles while remediation-shaped tasks keep
+# being lapped in the same window — a built cure orphaned at the merge tail
+# while the laps it would eliminate continue. Age is measured in cycles via a
+# first-seen sidecar, so a freshly-implemented plan is never flagged instantly.
+# Detection-only; self-extinguishes once the cure merges. Default-on; zero SDK
+# cost (one sidecar read/write under a file lock).
+orphaned_cure_enabled = true     # Rule 11 master switch
+orphaned_cure_age_cycles = 3     # Audit cycles unmerged before a cure is flagged
+
+# Orphaned-cure retire actuator — rule 11's mechanical dispose complement.
+# Retires (marks obsolete, capturing the fire to lever_attempts.jsonl) an
+# implemented-but-unmerged plan whose sidecar age reaches the retire ceiling
+# AND whose PR tend has directly observed as CONFLICTING
+# (last_conflict_resolution_attempt_at set) — live conflict evidence, not a
+# stamp. The ceiling must be strictly greater than orphaned_cure_age_cycles
+# (10x the flag default) so only truly-dead cures qualify; the PR itself
+# stays open for human disposition. Accepted gap: a retired cure leaves
+# check_merged_plans' implemented-only view, so a later human merge of its
+# PR is not auto-recorded (no merged status, no VersionRecord).
+# Default-on; zero SDK cost.
+orphaned_cure_retire_enabled = true    # Retire actuator switch
+orphaned_cure_retire_age_cycles = 30   # Audit cycles before a conflicted cure is retired
+
+# Phantom-escalation rule (rule 12) — the standing alarm at the door. Flags
+# "partial" remediation laps whose result_summary asserts "escalating" for a
+# "#NNNN" PR while no outbound message to Thomas references it — escalation that
+# lived only in prose. Self-extinguishes the moment a referencing message is
+# delivered. Default-on; zero SDK cost (pure cross-reference of recent tasks
+# against recent messages).
+phantom_escalation_enabled = true     # Rule 12 master switch
+phantom_escalation_delivery_enabled = false  # [production: true — canary, proposal 090] Rule 12 delivery arm (proposal 090): mechanically send the merge-or-close message a phantom escalation only narrated
+
+# Unconfirmed-own-landing rule (rule 14) — the standing alarm at my own commit.
+# Rule 12 contests a verdict keyed by PR number; this one watches the most
+# concrete handoff gap: a fix I committed on a DIRTY PR branch (a specific SHA),
+# stamped "resolved on branch, awaiting tend push", and never confirmed reached
+# main. Flags a "partial" task whose result_summary carries an on-branch handoff
+# marker + a committed SHA + a "#NNNN" when git-merge-truth shows that SHA is
+# still not an ancestor of origin/main (and the PR has not otherwise merged) past
+# unconfirmed_landing_age_cycles audit cycles — handed is not landed. Age is
+# measured in cycles via a first-seen sidecar so Tend's push latency is never
+# mistaken for a gap; self-extinguishes the moment the SHA lands. Adds no push
+# capability — the only act it forces is looking. Default-on; zero SDK cost (one
+# sidecar read/write plus bounded git subprocesses per SHA/PR).
+unconfirmed_landing_enabled = true      # Rule 14 master switch
+unconfirmed_landing_age_cycles = 3      # Audit cycles unlanded before a SHA is flagged
+unconfirmed_landing_forced_enabled = false  # [production: true — canary, proposal 090] Rule 14 forced disposition (proposal 090): route a past-grace PR-bearing finding through deliver_handoff (one merge-or-close message + durable standdown), not just journal
+
+# Ungrounded-question-closure (rule 16, proposal 088 Phase 1) — the eyes veto a
+# closure. Re-surfaces every removed open question whose only probe did not
+# succeed (QuestionResolution disposition=removed + outcome != success) as a
+# contradicted_claim [audit] finding, so the LLM must re-open it or justify the
+# closure. Self-extinguishing once the row ages out or a successful probe
+# re-resolves it. Default-off for opt-in lived-data validation; zero SDK cost.
+ungrounded_closure_enabled = false          # Rule 16 master switch
+
+# Reality-refutation (proposal 088 Phase 2) — the eyes win a sustained dispute.
+# A git-grounded audit finding (phantom resolution, unconfirmed-own-
+# landing) the LLM refutes every cycle while git still contradicts it currently
+# re-fires with no escalating consequence. display_enabled injects a
+# REALITY-REFUTATION contemplation line; reality_refutation_enabled (below) is
+# the actuator that, at the same threshold, delivers one durable merge-or-close
+# standdown via the escalation bridge. Both default-off; zero SDK cost.
+reality_refutation_display_enabled = false  # [production: true — canary, proposal 090] Phase 2 display mirror
+reality_refutation_threshold = 3            # Consecutive cycles before a refuted finding surfaces (>= 1)
+reality_refutation_enabled = false          # [production: true — canary, proposal 090] Phase 2 actuator master switch
+
+# Measurement-costume display (proposal 112) — when true, contemplate() injects a
+# MEASUREMENT-COSTUME line naming the recent tasks framed as read-only
+# investigation but discharged as tracked construction (the frame↔discharge owner
+# stamped COSTUME). Self-extinguishing; zero SDK cost. Independent of the
+# record-time cap's [loop] frame_discharge_bind_enabled.
+costume_display_enabled = false
+
+# Undefined-coinage display (proposal 101) — when true, contemplate() injects an
+# UNDEFINED-COINAGE line naming coinages the journal actively mints that
+# docs/lexicon.md does not yet define. Self-extinguishing; zero SDK cost.
+undefined_coinage_display_enabled = false
+
+# Flag-horizon display (proposal 117) — when true, contemplate() injects a
+# FLAG-HORIZON line naming each EXPERIMENTAL_FLAGS entry within (or past) its
+# review_by horizon, marking already-past ones OVERDUE, so an approaching
+# promote-or-delete deadline reaches the agent on its own cadence rather than
+# only as a late CI red. Self-extinguishing; zero SDK cost.
+flag_horizon_display_enabled = false
+
+# Split-due sensor (proposal 147) — when true, contemplate() injects a SPLIT-DUE
+# line naming the worst source files at or above the split-due size line, so a
+# growing module is named before it reaches the size wall. Self-extinguishing;
+# zero SDK cost.
+split_due_sensor_enabled = false
+
+# Split-due directive bridge (proposal 147) — when true, audit_self_model fills an
+# empty next_task_directive with a concern-split directive for the worst source
+# file at or above the split-due line. Self-extinguishing; zero SDK cost.
+split_due_directive_enabled = false
+
+# Undefined-coinage directive bridge (proposal 101) — the actuator half of the
+# display flag above. When true, _audit_self_model routes the top undefined
+# coinage into an empty next_task_directive so the next task defines it (or lets
+# it lapse). Defers to owned WIP; self-extinguishing; zero SDK cost.
+undefined_coinage_directive_enabled = false
+
+# Construction-dominance (rule 17) — surfaces the task-shape choice that precedes
+# false-landing claims. When construction-shaped tasks reach the threshold fraction
+# of the last window tasks, emits one finding naming the over-selection of a shape
+# whose verdict Maestro signs itself (never an external "no"). Self-extinguishing
+# below the threshold. Default-off for opt-in lived-data validation; zero SDK cost.
+construction_dominance_enabled = false      # Rule 17 master switch
+construction_dominance_threshold = 0.6      # Construction fraction that fires the rule ([0.0, 1.0])
+construction_dominance_window = 10          # Recent tasks the fraction is computed over (>= 1)
+
+# Phantom-partial-prune (rule 19) — the affirmative counterpart to the landing
+# binds, aimed at the under-claim side of grounding-drift. When a partial-stamped
+# self-directed, pr_head_sha-less task fired mark_plan_obsolete on a 12-hex
+# plan_id whose disk status reads obsolete (fresh evolution_plans.jsonl load,
+# not the gross pending_review count-delta concurrent writes corrupt), emits one
+# finding: the prune landed, the verdict under-claimed it. Self-extinguishing.
+# Default-off for opt-in lived-data validation; zero SDK cost.
+phantom_partial_prune_enabled = false       # Rule 19 master switch
+
+# Under-credited-landing (rule 20) — the affirmative twin of rule 14. Flags a
+# non-success task whose own-committed SHA (extract_self_committed_shas) git
+# proves is an ancestor of origin/main — a landing authored and stamped nothing.
+# Closes the sensor asymmetry (every other landing rule only downgrades a claim,
+# none rewards a confirmed one) that trains the disposal treadmill. Not an
+# auto-relabel — surfaces one self-extinguishing [audit] finding for the LLM to
+# judge. Default-off for opt-in lived-data validation; zero SDK cost (one bounded
+# git subprocess per distinct cited SHA).
+undercredited_landing_enabled = false       # [production: true — canary] Rule 20 master switch
+
+# Reconcile-near-miss (rule 21) — the pre-landing complement of rule 20. Flags a
+# partial remediation on a git-unlanded own PR measured <= reconcile_near_max_behind
+# behind origin/main whose lineage authored no ancestor-of-main reconcile SHA — the
+# actuator gap in the <=N-behind band that keeps "awaiting review/merge" structurally
+# available for exactly the case that is mine to land (a cleanly-reconcilable own PR
+# a few commits behind main). Only a new SHA on origin/main extinguishes it; it routes
+# one self-extinguishing [audit] finding into a "Reconcile+push #N or gh pr close #N"
+# directive. Default-off for opt-in lived-data validation; zero SDK cost (one bounded
+# merge-truth read + one commits-behind measurement per distinct cited PR).
+reconcile_near_miss_enabled = false         # [production: true — canary] Rule 21 master switch
+reconcile_near_max_behind = 10              # Near-band ceiling in commits behind origin/main (>= 1)
+
+# Green-ready-handoff (rule 22) — the earliest, most-owned handoff trigger. Every
+# prior handoff arm fires late (the escalation bridge after lap-budget exhaustion;
+# rule 14 on a verdict/SHA contradiction). This fires the instant
+# an owned, git-unlanded PR reads merge-ready — every CI check SUCCESS, no
+# code-clearable merge blocker, waiting only on Thomas's merge — and carries no
+# pr_number-keyed handoff standdown: it routes that PR through the existing
+# deliver_handoff actuator exactly once (one merge-or-close message + the durable
+# standdown). The standdown self-extinguishes the rule and auto-releases on
+# merge/close via the same forced-arm path rule 14 uses — no new capability, no
+# new push. Default-on (the veto-proof handoff lever has fired zero times by
+# intention, so a default-off flag would bind nothing); zero SDK cost.
+green_ready_handoff_enabled = true          # Rule 22 master switch
+
+# Banked-owned-act-reperformance — the retrospective artifact-id-axis complement to
+# the prospective check_untouched_first_target task gate. Reads the three owned-act
+# ledgers (stand-down verdicts, obsolete-prune plans, delivered handoffs) and flags a
+# next_task_directive or queued goal that re-performs an already-banked act (re-doing
+# it only re-banks a duplicate). Self-extinguishing; git-free, zero SDK cost.
+# Default-off for opt-in lived-data validation.
+banked_owned_act_enabled = false            # Banked-owned-act-reperformance shield
+
+# Owned-act-drought (rule 18) — a self-releasing consequence for a zero-count of
+# chosen terminal acts. When zero owned terminal acts (mark_plan_obsolete
+# obsolete plan-status events + CHOSEN stand-down verdict rows) landed in the
+# last owned_act_drought_window cycles AND at least owned_act_drought_min_backlog
+# prunable pending_review plans exist, emits one [audit] finding routing the
+# owned-act demand into next_task_directive. Self-extinguishes the instant one
+# owned act of either kind lands. Default-on (a default-off flag binds nothing);
+# zero SDK cost.
+owned_act_drought_enabled = true            # Rule 18 master switch
+owned_act_drought_window = 5                # Recent task cycles the window spans (>= 1)
+owned_act_drought_min_backlog = 2           # Prunable pending_review plans required to fire (>= 1)
+
+# Branch-promotion-pressure master switch (proposal 116, step 6). Default-on =
+# today's behaviour. When false, every site that manufactures pressure to promote
+# a kept task branch into main via a source_task_id follow-up goes silent at once:
+# audit rule 7, the two task-gate directive bridges, the three task-generation
+# promotion hints, the kept_task_branches_v1
+# seed limitation mirror, and the step-5e merge-clean auto-direction. Zero SDK cost.
+branch_promotion_pressure_enabled = true    # [production: false — prod-disabled, proposal 116] Master switch for the branch-promotion-pressure subsystem
+
+# Retire-unlanded-limitations fuel-starve (proposal 116) — before surfacing a
+# limitations_known entry as a [limitation] open question, contemplate() measures
+# the unlanded plan debt its question-lineage has accrued (tasks whose
+# linked_question falls in the lineage, and the obsolete/rejected evolution plans
+# citing those tasks via source_task_id). A limitation at/over
+# generative_debt_threshold such plans is not re-surfaced, so it stops anchoring
+# new self-directed work. Self-extinguishing (debt recomputed from git-and-ledger
+# truth each cycle); zero SDK cost. Default on since the proposal-116 graduation;
+# false restores mirroring every limitation.
+retire_unlanded_limitations_enabled = true  # Proposal 116 master switch
+generative_debt_threshold = 3                # Unlanded plans in a lineage before its limitation is starved (>= 1)
+self_calibration_enabled = false             # [production: true — canary, proposal 129] Proposal 129 — priced reflection states its loss condition in the oracle grammar + a CONFIDENCE; rows gain confidence + probe kind (off: byte-identical)
+calibration_verdict_authority_enabled = false  # [production: true — canary, proposal 129] Proposal 129 — the oracle (author_reflection_verdict), not the PRIOR VERDICT self-grade, authors the reflection ledger verdict; divergence traced (off: byte-identical)
+evidence_bound_claims_enabled = false        # [production: true — canary, proposal 129] Proposal 129 — update_self_model cites each capabilities_known claim to a task/SHA/sensor-tag anchor, resolved into SelfModel.claim_evidence (existence+polarity); off: no key read, prompt byte-identical
+closed_reference_enabled = false             # Rule 23 — flag a self-model entry whose every cited #NNN is closed on the host (bounded gh api lookups, zero SDK cost)
+refutation_accountability_enabled = false    # [production: true — canary, proposal 129] Proposal 129 Phase C — a refuted mechanical_fact audit finding that keeps re-firing on the same target is mechanically restored to its canonical [audit] form; derived/heuristic rules stay refutable (off: open_questions byte-identical)
+refutation_rejection_cycles = 3              # Consecutive re-firing cycles before a refuted mechanical-fact finding is overturned (>= 1)
+
+[cli]
+journal_default_count = 10    # Default journal entries to display
+log_tail_lines = 50           # Default log lines to display
+verbose = false               # Enable debug logging
+
+[telegram]
+max_length = 4096       # Max Telegram message length before truncation
+
+[logs]
+dates_shown = 5            # Recent date directories shown in SDK session listing
+session_data_days = 10     # Recent date directories included in session data API
+max_bytes = 52428800       # Rotate maestro.log past ~50 MiB (>= 1)
+backup_count = 3           # Keep maestro.log.1 … maestro.log.N backups (>= 1)
+structured_transcripts_enabled = true  # Write provenance-stamped .jsonl transcript sidecars next to SDK .log files (default-on; a session with no sidecar still renders from its raw .log)
+transcript_content_max = 20000  # Per-turn content cap for the .jsonl transcript sidecar (>= 1; independent of the .log truncate bound)
+
+[ci]
+cov_fail_under = 97     # Minimum test coverage percentage for self-review
+
+[models]
+# Model ID used for every Maestro SDK call; it must have a profile in
+# maestro/model_profiles.py (keep equal to DEFAULT_MODEL there). The per-call
+# effort level is the only thinking control. Empty string = inherit SDK default.
+default = "claude-opus-4-8"
+fallback = ""  # Fallback model when primary unavailable (empty = disabled)
+# Targeted opt-in 1M-context model variant. Empty string = disabled (the
+# default). When non-empty, three call sites switch to this model and a
+# matching enlarged char/budget cap: self_review diff, conflict
+# resolution, and (when [loop] long_context_implementation_enabled is
+# also true) the per-plan implementation session. The model string is
+# passed verbatim as `--model` and Maestro injects the SDK's
+# `context-1m-2025-08-07` beta automatically when this is set, so the
+# full 1M-token window is available. 1M-tier pricing comes from the model
+# profile's long_context_pricing in maestro/model_profiles.py.
+long_context = ""
+
+[sdk]
+# Sticky ``allowed_warning`` throttle — fires before every SDK ``query()``
+# call (not just between loop iterations). When the API emits an
+# ``allowed_warning`` event, the multiplier doubles (capped at 16); when
+# a clean call runs, the hysteresis counter increments and the multiplier
+# halves once hysteresis is reached. Actual pre-call sleep is
+# ``base_seconds * multiplier`` capped at 1800s. See CLAUDE.md for the
+# full state machine.
+warning_throttle_base_seconds = 10
+warning_throttle_hysteresis = 3
+warning_hold_threshold = 3      # Consecutive max-multiplier warnings before loop-level hold
+warning_hold_probe_interval = 60  # Base seconds between hold probe calls (exponential backoff)
+warning_hold_min_utilization = 0.95  # Warned utilization below this slows calls but never holds the loop (#4514)
+# Rate-limit extended idle — fires when in-place rate-limit retries hit
+# the _MAX_CONSECUTIVE_RATE_LIMITS ceiling (5). The loop enters an idle
+# state and probes the API with exponential backoff (base * 2**attempt,
+# capped) until one probe succeeds. Replaces the previous crash-on-ceiling
+# behavior so sustained outages pause the loop instead of generating a
+# false-positive crash issue.
+rate_limit_idle_probe_interval = 300       # Base seconds between rate-limit idle probes
+rate_limit_idle_max_probe_interval = 3600  # Cap on the exponential-backoff probe interval
+max_concurrent_queries = 2      # Max parallel SDK query() calls (semaphore limit)
+# Evolution-lineage calls run on their own single-use session at their registry effort.
+single_use_evolution_calls_enabled = false  # [production: true — canary, proposal 139]
+# Seam resolves each call's effort from the call-policy registry; needs the flag
+# above and [loop] self_review_own_session_enabled.
+call_policy_resolution_enabled = false  # [production: true — canary, proposal 140]
+# Seam derives each call's tools from its caller's declared tool surface (proposal 142).
+enforced_tool_surface_enabled = false  # [production: true — canary, proposal 142]
+stream_idle_timeout_seconds = 180  # Per-message SSE wait_for() deadline (0 disables)
+# Idle timeout for tool-using callers (implement / self-review / auto-fix /
+# executor). Longer than stream_idle_timeout_seconds because effort=high +
+# multi-step tool use legitimately produces long
+# silent stretches (thinking between tool calls is not streamed), and a caller
+# that shells out to run the quality gates is silent for the whole run. Must be
+# strictly greater than `[timeouts] selfcheck_max` (validated); 0 disables.
+# Trade-off accepted when this was raised from 600: a genuinely dead stream now
+# takes 3 x 1800s to trip `_MAX_CONSECUTIVE_STREAM_STALLS` instead of 3 x 600s.
+# Narrowing the net per-caller (so a gate-running step gets the long net and an
+# ordinary tool step a short one) is deliberately out of scope here.
+tool_stream_idle_timeout_seconds = 1800
+task_budget_tokens = 0          # Per-call token budget (0 = unlimited, >= 1024 when enabled)
+# Provider selection (proposal 058). Picks which Provider backs the four SDK
+# seam functions. Values:
+#   "anthropic" (default) — today's exact AnthropicProvider path.
+#   "openai"              — OpenAI reference provider (Phase 3: query path landed,
+#                           not yet registered — selecting it fails loud below).
+#   "cli_paced"           — human-paced claude-CLI provider (056 / Phase 4). The
+#                           CLI path reports total_cost_usd=None (usage_metering=
+#                           False) and cannot forward MCP servers, betas, in-stream
+#                           completion predicates, or resume.
+# Selecting a not-yet-registered name fails loud at startup (configure_provider).
+# Optional per-phase override: add `<phase>_provider = "..."` for any phase in
+# {contemplation, evolution, implementation, task_generation, artifact_review,
+# rejection, run_task}, e.g. `artifact_review_provider = "openai"`.
+provider = "anthropic"
+enable_session_reuse = true     # Share ClaudeSDKClient session across sequential step tiers
+
+# cli_paced provider pacing + idle overrides (proposal 056 Step 12). Only applied
+# when `provider = "cli_paced"` (or a `<phase>_provider = "cli_paced"` override) is
+# selected. Left commented so the shipped defaults stay at maestro_sdk's documented
+# Cadence() and its built-in 10s idle deadline. Uncomment + tune as needed:
+#   stream_idle_timeout_seconds — CLI-path idle deadline a caller inherits when it
+#     passes no per-call override (0/absent → maestro_sdk's 10s default). The CLI
+#     path does NOT inherit the agent-side [sdk] stream_idle_timeout_seconds.
+#   Cadence knobs (ms unless noted): mean_key_ms, stddev_key_ms, min_key_ms,
+#     word_pause_ms, sentence_pause_ms, thinking_pause_prob (0..1),
+#     heartbeat_min_ms, heartbeat_per_answer_char_ms, heartbeat_max_ms,
+#     cols, rows, size_jitter (0..1 winsize jitter).
+#   Slash-command metrics probe (proposal 062): probe_metrics_enabled scrapes
+#     /cost, /usage, /context on session turns as an observability side channel
+#     (the transcript sidecar stays authoritative for spend); probe_metrics_every
+#     (>= 1) amortises the probe over N turns. Needs a per-CLI-version
+#     SlashProbeMarkers pack to parse anything — unparsed redraws read as None,
+#     never a fabricated count.
+#   Marker pack (proposal 075): marker_pack = "auto" probes `claude --version`
+#     at startup and applies the newest registered pack covering that version
+#     (WARNs and runs pack-less when none covers — EOF-only turns, no
+#     session-id capture); a pack name pins one explicitly (a typo fails loud
+#     at config validation); "none" (default) keeps the empty markers.
+# [sdk.cli_paced]
+# stream_idle_timeout_seconds = 180
+# mean_key_ms = 90
+# heartbeat_per_answer_char_ms = 12
+# probe_metrics_enabled = false
+# probe_metrics_every = 1
+# marker_pack = "none"
+
+# Per-model pricing (USD per million tokens, standard and 1M-context) lives
+# in maestro/model_profiles.py (MODEL_PROFILES, projected by pricing_table())
+# and is not mirrored here. An operator may still add an
+# [sdk.pricing."<model>"] group (input / output / cache_creation / cache_read)
+# as an override; a non-empty group replaces the registry projection wholesale.
+
+[messaging]
+max_length = 2000       # Max inbound message content length
+
+[email]
+smtp_host = "smtp.zoho.com"
+smtp_port = 587
+imap_host = "imap.zoho.com"
+imap_port = 993
+max_length = 50000      # Max email body length
+
+[mcp]
+context7_enabled = false  # [production: true — canary, proposal 084] Enable Context7 MCP server for library documentation
+context7_command = "npx"
+context7_args = ["-y", "@upstash/context7-mcp"]
+
+# Serena — opt-in symbol-level code retrieval (default off). Version-pinned so the
+# tool inventory cannot drift; mutating tools are denied so the server is read-only.
+serena_enabled = false    # Enable Serena symbol-retrieval MCP server
+serena_command = "uvx"
+serena_args = ["--from", "serena-agent==1.5.3", "serena", "start-mcp-server"]
+
+[review]
+max_diff_chars = 80000  # Max diff size for review
+max_files = 50          # Max files to review
+gh_timeout = 30         # GitHub CLI timeout
+require_comment_replies = 0  # Reply-coverage gate default (0 = off); consumed by maestro-review's --require-comment-replies check-only flag
+
+[artifacts]
+# Artifact-review pipeline — inspects artifacts/{task_id}/ output from
+# completed tasks and classifies each as publish / improve / reuse / skip.
+# Verdicts are persisted to artifact_reviews.jsonl. Publish verdicts
+# are recorded but do NOT emit publication proposals in 031 — that
+# behaviour lands behind [publication].enabled in proposal 032.
+review_enabled = true               # Master switch
+review_every = 20                   # Run review phase every N iterations (>= 1)
+review_batch_size = 3               # Max tasks reviewed per batch (>= 1)
+review_max_file_bytes = 4096        # Per-file head-truncate cap (>= 1)
+review_max_files_per_task = 10      # Max files included per task bundle (>= 1)
+review_max_bundle_bytes = 12288     # Total bundle size cap (>= 1)
+
+[publication]
+# Publication pipeline — turns publish-verdict reviews into public GitHub
+# repos. Gated behind its own enabled flag. Proposal 032 activates the
+# approval surface (Telegram + dashboard) so publish verdicts emit
+# PublicationProposal records that Thomas approves or rejects. Approved
+# proposals queue in status="approved" with no side effect until
+# proposal 033 lands the executor — a reversible dogfooding window.
+enabled = true                          # 032: approval surface active; 033 runs the publisher
+owner = "thomas-sodon"                  # GitHub namespace publications are created under (empty = the authenticated gh login)
+copyright_holder = "Thomas Sodon"
+license = "MIT"
+secret_scan_enabled = true              # Run hard-block scan on full files before push
+executing_stale_timeout_seconds = 600   # Stale-executing downgrade threshold (>= 60)
+push_retry_limit = 3                    # Resume-path git-push retry ceiling (>= 1)
+
+[evolution_fuel]
+# Proposal 155 gap issues: the most plans one gap may fuel, and the hours a
+# red ``main`` is tolerated before it opens a ``maestro:gate`` gap.
+max_plans_per_gap = 2
+red_main_grace_hours = 12.0
+# GitHub logins whose gap:* label or hand close is the operator's. Never the
+# loop's own login — startup refuses it.
+operator_github_logins = []
