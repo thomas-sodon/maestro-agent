@@ -1,10 +1,10 @@
-Tell me, bluntly, what the fuck Maestro has actually been spending its time and money on.
+Give me a blunt, read-only account of what Maestro has actually been spending its time and money on.
 
 This is a read-only forensic report over the **running loop's** persisted ledgers — no git mutations, no SDK calls, no code-host calls, no edits. It answers one question: for the requested window, where did the iterations, the dollars, and the wall-clock go, and what — if anything — came out the other end.
 
 `$ARGUMENTS` is optional:
 - A window: `24h` (default), `7d`, `90m`, `2w`, or `all`.
-- `--data-dir <dir>` to point at a different state directory. The default comes from `$MAESTRO_DATA_DIR` when that is set in the environment, otherwise the live loop's `/opt/maestro/data`, falling back to `./data`. Each ledger is read hot tier plus its `Memory.archive()` cold sibling, so "all time" survives a dream-cycle rotation.
+- `--data-dir <dir>` to point at a different state directory. The default comes from `$MAESTRO_DATA_DIR` when that is set in the environment, otherwise the live loop's `/home/maestro/maestro/data` (the checkout path in docs/vps-setup.md), falling back to `./data`. Each ledger is read hot tier plus its `Memory.archive()` cold sibling, so "all time" survives a dream-cycle rotation.
 - `--top <n>` to widen the ranked tables (default 10).
 
 The digest reads JSONL only. When `[paths] sqlite_state_enabled` has moved a ledger into `state.db`, the empty sidecar is flagged with a `!!` banner — carry that into the report as *unmeasured*, never as a measured zero.

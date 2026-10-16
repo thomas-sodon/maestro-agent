@@ -83,11 +83,11 @@ def test_reconcile_bounded_to_status_axis_defers_broader_drift() -> None:
 
 
 def test_reconcile_skips_docs_only_proposals() -> None:
-    """A docs-only / service proposal with no checkbox step list is skipped."""
+    """A docs-only proposal with no checkbox step list is skipped."""
     section = _reconcile_section(_PLAN_PROPOSAL_DOC.read_text(encoding="utf-8"))
 
     assert "docs-only" in section.lower(), (
-        "The reconcile section must skip a docs-only / service-flavored proposal "
+        "The reconcile section must skip a docs-only proposal "
         f"that has no checkbox step list to flip. Section:\n{section}"
     )
 

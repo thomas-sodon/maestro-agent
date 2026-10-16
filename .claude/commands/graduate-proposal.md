@@ -30,7 +30,7 @@ The switch never discards commits (it fires only when the branch adds nothing to
 
 ## Resolve the proposal and gate on graduation-readiness
 
-1. Glob `docs/proposals/**/<NNN>-*.md` (recursive — proposals live in category subfolders: `core/`, `security/`, `publication/`, `audience/`, `income/`, `research/`, `ux/`, `technical-plan/`, `operations/`).
+1. Glob `docs/proposals/**/<NNN>-*.md` (recursive — proposals live in category subfolders: `core/`, `security/`, `publication/`, `audience/`, `research/`, `ux/`, `technical-plan/`, `operations/`).
    - Zero matches → stop with `error=proposal_not_found`; suggest the user check `docs/proposals/README.md` for available numbers.
    - Multiple matches → stop with `error=ambiguous_proposal_match` and list the matches.
 2. Read the matched file in full, including its metadata `Status` row and its `docs/proposals/README.md` row.

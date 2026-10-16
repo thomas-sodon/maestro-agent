@@ -8,7 +8,7 @@ scripts/quality-gates.sh <scope>   # all | maestro | review | sdk | browser | un
 
 It streams each group's tool output, then prints one `GATE <name>: PASS|FAIL(<stage>)` line per group and a final `OVERALL: PASS|FAIL`, exiting non-zero if any in-scope group failed.
 
-This command differs from the Stop hook in four ways: it runs on demand (not just at agent stop), it includes the browser tests (the hook's `changed` scope never runs browser), with the `all` scope it runs every group regardless of which files have changed, and — unlike the purely local hook — it reconciles against the current PR's live CI, folding the gate group behind any failing CI check into the run so a class the requested scope skipped (or that only fails on the runner) still gets addressed. The three CI check jobs map onto the local groups: `quality` → `maestro`, `browser-tests` → `browser`, and the merged `package-quality` → `review` + `sdk` (that one job runs both sibling gate sets); a red CI check that is *not* one of these (the `AI Code Review` workflow, `deploy`) is out of scope here.
+This command differs from the opt-in Stop hook in four ways: it runs on demand (not just at agent stop), it includes the browser tests (the hook's `changed` scope never runs browser), with the `all` scope it runs every group regardless of which files have changed, and — unlike the purely local hook — it reconciles against the current PR's live CI, folding the gate group behind any failing CI check into the run so a class the requested scope skipped (or that only fails on the runner) still gets addressed. The three CI check jobs map onto the local groups: `quality` → `maestro`, `browser-tests` → `browser`, and the merged `package-quality` → `review` + `sdk` (that one job runs both sibling gate sets); a red CI check that is *not* one of these (the `AI Code Review` workflow, `deploy`) is out of scope here.
 
 `$ARGUMENTS` is a space-separated list of tokens. Recognized tokens (anything else: warn and treat as `all` for scope, `fix` for mode):
 
@@ -146,4 +146,4 @@ Apply these rules in fix mode. The goal is to make the gate genuinely pass, not 
 - The PR CI inspection is **read-only**: it only reads the check rollup and run logs via `gh`. It never re-runs, cancels, or restarts CI, never edits the PR, and never posts a comment.
 - Only commit and push after the in-scope gates (requested ∪ CI-derived) are green — never push a still-failing tree.
 - Each gate has a 3-round fix budget; surface remaining failures to the user rather than looping indefinitely.
-- The Stop hook will re-run scoped gates after this command — it is the safety net that catches anything missed.
+- CI enforces the gates on the PR and is the safety net that catches anything missed. `.claude/quality-gate-hook.sh` is an opt-in Stop hook you can register in `.claude/settings.local.json` to re-run scoped gates when the agent stops.

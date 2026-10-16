@@ -7,7 +7,7 @@ This command is for **systemic design, not spot fixes**. The free-form text in `
 Recognized tokens:
 - `--data-dir=PATH` — explicit path to the live `data/` directory (overrides auto-detection)
 - `--container=NAME` — read live data via `docker exec` on this container when the host bind-mount lookup fails (default: `maestro-loop`)
-- `--category=<name>` — force the proposal category; must be one of `core`, `security`, `publication`, `audience`, `income`, `research`, `ux`, `technical-plan`, `operations`, else `error=invalid_argument`
+- `--category=<name>` — force the proposal category; must be one of `core`, `security`, `publication`, `audience`, `research`, `ux`, `technical-plan`, `operations`, else `error=invalid_argument`
 - `--dry-run` — print the full proposal body and the README table row to stdout; write nothing
 
 ## Locate the live data directory
@@ -95,7 +95,7 @@ The Implementation Plan MUST NOT be built from these (same family as `/rca`'s fo
 ## Author the proposal document
 
 1. **Number.** `NNN = max + 1` over every number that appears in `docs/proposals/**/[0-9][0-9][0-9]-*.md` filenames *and* both README tables (Shipped reserves its numbers). Zero-pad to 3 digits.
-2. **Category.** Use `--category` if given; otherwise apply the nine-rule decision tree in `docs/proposals/README.md` § "How to pick the category" in order, first match wins.
+2. **Category.** Use `--category` if given; otherwise apply the eight-rule decision tree in `docs/proposals/README.md` § "How to pick the category" in order, first match wins.
 3. **Slug.** Short kebab-case from the title; file is `docs/proposals/<category>/NNN-<slug>.md`.
 4. **Layout.** Follow `docs/proposals/TEMPLATE.md` exactly (do not modify the template itself): metadata table (`Impact` HIGH/MEDIUM/LOWER, `Status` `proposed`, `Affects` with real current paths, `Depends on` from the overlap step, `Derived from` → `live production data via /propose, <date>`), then `## Description`, `## Relevant Findings`, `## Implementation Plan`, `## Testing Strategy`, `## Risk Assessment`. Add two optional sections the template's optional-section convention accommodates:
    - `## Production Evidence` — the quantified findings from the mining step, each with its measurement window and the `$DATA_DIR` file it came from (quoted spans tight, 5–15 lines, redacted). If no live data was available, this section says so in one line.

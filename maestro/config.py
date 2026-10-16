@@ -220,7 +220,7 @@ class Config:
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
     dashboard_port: int = 8420
-    dashboard_host: str = "0.0.0.0"
+    dashboard_host: str = "127.0.0.1"
     dashboard_token: str | None = None
     trust_forwarded_proto: bool = False
     # When True, rate-limit keys read ``X-Real-IP`` set by nginx

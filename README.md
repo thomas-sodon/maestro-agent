@@ -114,7 +114,7 @@ Maestro uses TOML files for configuration and environment variables for secrets 
 | `GITHUB_TOKEN` | Yes | GitHub PAT (`contents:write`, `pull_requests:write`, `issues:write`) |
 | `TELEGRAM_BOT_TOKEN` | No | Telegram bot token for notifications |
 | `TELEGRAM_CHAT_ID` | No | Telegram chat ID for notifications |
-| `MAESTRO_DASHBOARD_TOKEN` | No | Bearer token for dashboard auth (`openssl rand -base64 32`) |
+| `MAESTRO_DASHBOARD_TOKEN` | Set it before binding to a non-loopback host | Bearer token for dashboard auth (`openssl rand -base64 32`) |
 | `MAESTRO_ENV` | No | Environment name — loads `maestro.{env}.toml` overlay |
 
 **TOML configuration** (in `maestro.toml` with per-environment overrides):
@@ -125,7 +125,7 @@ Maestro uses TOML files for configuration and environment variables for secrets 
 | `[paths]` | `memory_dir` | `"data"` | Persistent state directory (relative to cwd / repo root) |
 | `[github]` | `repo` | `""` | GitHub repo for evolution PRs (e.g. `owner/repo`) |
 | `[dashboard]` | `port` | `8420` | Dashboard port |
-| `[dashboard]` | `host` | `"0.0.0.0"` | Dashboard bind address |
+| `[dashboard]` | `host` | `"127.0.0.1"` | Dashboard bind address (the production overlay binds `"0.0.0.0"` inside the container) |
 | `[cli]` | `verbose` | `false` | Enable debug logging |
 
 See `maestro.toml` for all settings (timeouts, loop intervals, limits). Per-environment overrides are in `maestro.{env}.toml` files, selected by `MAESTRO_ENV`. 
@@ -162,7 +162,7 @@ From the dashboard you can:
 
 Maestro runs in Docker with two services: `loop` (autonomous agent) and `dashboard` (web UI on port 8420). Credentials are read from a `.env` file.
 
-> **Point it at your own fork first.** `docker-compose.yml` defaults to `MAESTRO_ENV=production`, which loads `maestro.production.toml`: the original operator's overlay, targeting `thomas-sodon/maestro-agent`. Either set `[github] repo` and `reviewer` in that overlay to your own fork and account, or run on the base config only. Outside Docker, leaving `MAESTRO_ENV` unset or empty (`MAESTRO_ENV=`) does that. Compose's `${MAESTRO_ENV:-production}` treats an empty value as unset, so under Docker pass a name that has no overlay file instead, for example `MAESTRO_ENV=local docker compose up -d`.
+> **Point it at your own fork first.** `docker-compose.yml` defaults to `MAESTRO_ENV=production`, which loads `maestro.production.toml`: the original operator's overlay, targeting `thomas-sodon/maestro-agent`. Under Docker, either set `[github] repo` and `reviewer` in that overlay to your own fork and account, or create a `maestro.local.toml` (gitignored) that sets `[dashboard] host = "0.0.0.0"` plus your own `[github] repo` and `reviewer`, and run `MAESTRO_ENV=local docker compose up -d`. A container run needs that non-loopback bind: Docker's port forwarding reaches the dashboard on the container's own network interface, so a dashboard on the base config's `127.0.0.1` default is unreachable even though the container's healthcheck, which curls `localhost` from inside it, still passes. Compose's `${MAESTRO_ENV:-production}` treats an empty value as unset, so an empty `MAESTRO_ENV` falls back to the production overlay there. Outside Docker, leaving `MAESTRO_ENV` unset or empty (`MAESTRO_ENV=`) runs on the base config only.
 
 ```bash
 docker compose build

@@ -40,7 +40,7 @@ shutdown = 10.0
 
 [dashboard]
 port = 8420
-host = "0.0.0.0"
+host = "127.0.0.1"
 rejection_reason_max = 2000
 max_page_size = 500
 log_buffer_size = 500

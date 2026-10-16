@@ -3,7 +3,7 @@ Update proposal documents `$ARGUMENTS` for the Maestro project to reflect today'
 `$ARGUMENTS` selects scope:
 - *(empty)* — every open proposal under `docs/proposals/<category>/`
 - a positive integer (e.g. `030`) — that single proposal
-- a category name (`core`, `security`, `publication`, `audience`, `income`, `research`, `ux`, `technical-plan`, `operations`) — every proposal in that subfolder
+- a category name (`core`, `security`, `publication`, `audience`, `research`, `ux`, `technical-plan`, `operations`) — every proposal in that subfolder
 
 You modify proposal files and the README index in place. You do not edit code, tests, or config to make a proposal's claim match the codebase — drift flows one way, from code into the proposal. You do not commit, stage, push, run quality gates, or enter plan mode.
 

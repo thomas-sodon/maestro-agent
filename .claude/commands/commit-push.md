@@ -81,4 +81,4 @@ scripts/with-env.sh <command>
 - Never force-push.
 - Never push to `main` directly.
 - If there are no changes to commit, stop and tell the user rather than creating an empty commit.
-- Do not run quality gates here — the stop hook handles that automatically.
+- Do not run quality gates here — CI enforces them on the PR. `.claude/quality-gate-hook.sh` is an opt-in Stop hook you can register in `.claude/settings.local.json` to run scoped gates when the agent stops.

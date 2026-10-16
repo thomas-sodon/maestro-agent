@@ -99,5 +99,5 @@ EOF
 - Never commit `.env`, credentials, or secret files.
 - Never force-push or push to `main` directly.
 - If the branch already exists on the remote, confirm with the user before pushing.
-- Do not run quality gates here — the stop hook handles that automatically.
+- Do not run quality gates here — CI enforces them on the PR. `.claude/quality-gate-hook.sh` is an opt-in Stop hook you can register in `.claude/settings.local.json` to run scoped gates when the agent stops.
 - Only add a `Fixes #<NNN>` keyword when Step 7 identifies an open issue with confidence — never guess a number, never close-reference an already-closed or non-existent issue, and never invent one for a `feat`/`refactor` PR that has no underlying issue.

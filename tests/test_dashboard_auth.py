@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import logging
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -24,11 +25,16 @@ FAKE_DIR = Path("/fake/auth")
 SECRET = "test-secret-token-42"
 
 
-def _make_app(mem_fs: dict[str, str], *, token: str | None = None):  # type: ignore[no-untyped-def]
+def _make_app(  # type: ignore[no-untyped-def]
+    mem_fs: dict[str, str], *, token: str | None = None, host: str = "127.0.0.1",
+):
     from maestro.agent import MaestroAgent
     from maestro.dashboard.app import create_app
 
-    config = Config(memory_dir=FAKE_DIR, workspace=FAKE_DIR, dashboard_token=token)
+    config = Config(
+        memory_dir=FAKE_DIR, workspace=FAKE_DIR, dashboard_token=token,
+        dashboard_host=host,
+    )
     memory = Memory(FAKE_DIR)
     consciousness = Consciousness(FAKE_DIR)
     journal = Journal(FAKE_DIR)
@@ -100,6 +106,24 @@ async def test_no_auth_when_no_token(mem_fs: dict[str, str]) -> None:
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         r = await client.get("/api/status")
     assert r.status_code == 200
+
+
+def test_no_token_on_loopback_logs_no_exposure_warning(
+    mem_fs: dict[str, str], caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The loopback default runs without a token and without the warning."""
+    with caplog.at_level(logging.WARNING, logger="maestro"):
+        _make_app(mem_fs, token=None)
+    assert "without MAESTRO_DASHBOARD_TOKEN" not in caplog.text
+
+
+def test_no_token_on_non_loopback_host_warns(
+    mem_fs: dict[str, str], caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Binding every interface without a token logs the exposure warning."""
+    with caplog.at_level(logging.WARNING, logger="maestro"):
+        _make_app(mem_fs, token=None, host="0.0.0.0")
+    assert "Dashboard exposed on 0.0.0.0 without MAESTRO_DASHBOARD_TOKEN" in caplog.text
 
 
 @pytest.mark.asyncio

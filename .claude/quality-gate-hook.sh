@@ -1,6 +1,7 @@
 #!/bin/bash
 # Quality gate enforcement for Claude Code agents.
-# Runs as a Stop hook — gates only the packages with modifications.
+# Runs as an opt-in Stop hook (register it in .claude/settings.local.json)
+# — gates only the packages with modifications.
 # Exit 0 = all clear, Exit 2 = keep working (forces agent to fix issues).
 #
 # The gate command groups and changed-package detection live in

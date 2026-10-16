@@ -30,8 +30,9 @@ Modes of `plan-to-merged-pr`:
    (record the waiver in the PR and the proposal doc).
 2. **Build.** Run `proposal-build-chain` with the ordered lanes; each lane's
    `bases` lists the earlier, still-unmerged lane branches it stacks on.
-3. **Ship in merge order.** Mergify merges any ready PR into `main`, so a stacked
-   lane's PR must not exist — not even as a draft someone readies — until every
+3. **Ship in merge order.** The original repository auto-merged any ready PR
+   into `main`; if your repository auto-merges ready PRs, the rule applies: a
+   stacked lane's PR must not exist — not even as a draft someone readies — until every
    PR below it has merged. Watch for those merges from the main session (a
    read-only loop on `gh pr view <n> --json state`), then run
    `plan-to-merged-pr` in ship-only mode for the lane, passing those PRs as
@@ -87,7 +88,7 @@ then `git apply <file>`; a WIP commit on the agent's own branch also works.
 ```js
 {
   lanes: [{ key: 'redrain', issues: [4602, 4577] }, { key: 'regex', issues: [4571] }],  // + optional branch, dir per lane
-  root: '/abs/worktrees/dir', date: '20261012',  // lane defaults: dir <root>/fix-<issues>, branch bugfix/<key>-<issues>-<date>
+  root: '/abs/worktrees/dir', date: '20261012',  // root required unless every lane sets dir; lane defaults: dir <root>/fix-<issues>, branch bugfix/<key>-<issues>-<date>
   ship: true, close: true,                       // ship false = build only; close false = report confirmed-fixed issues instead
   efforts: { triage: 'medium', verify: 'high', close: 'low', ... },  // plus the plan-to-merged-pr keys, passed through
   gate, commit_trailers, max_review_rounds, max_polish, max_monitor_rounds,

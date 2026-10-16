@@ -10,7 +10,7 @@ export const meta = {
   ],
 }
 
-// args: { lanes: [Lane], root?, date?, gate?, commit_trailers?, max_review_rounds?, max_polish?, max_monitor_rounds?, efforts?, ship?, close? }
+// args: { lanes: [Lane], root (required unless every lane sets dir), date?, gate?, commit_trailers?, max_review_rounds?, max_polish?, max_monitor_rounds?, efforts?, ship?, close? }
 // Lane: { key, issues: number[], branch?, dir? }
 //   issues  — issues fixed together in one PR (group issues that edit the same code site)
 //   branch  — default bugfix/<key>-<issues>-<date> (not fix/<NNN>-…, which /create-pr would read as the issue to close);  dir — default <root>/fix-<issues>
@@ -18,7 +18,8 @@ export const meta = {
 //   close   — default true; false = report confirmed-fixed issues instead of closing them
 const A = args || {}
 if (!A.lanes || !A.lanes.length) throw new Error('bug-fix-backlog: args.lanes is required (see .claude/workflows/README.md)')
-const ROOT = A.root || '/opt/maestro-dev/.claude/worktrees'
+if (!A.root && A.lanes.some(l => !l.dir)) throw new Error('bug-fix-backlog: args.root (an absolute worktrees directory) is required unless every lane sets dir (see .claude/workflows/README.md)')
+const ROOT = A.root
 const DATE = A.date || 'undated'
 const GATE = A.gate || './scripts/gate-slot.sh'
 const EFF = { triage: 'medium', verify: 'high', close: 'low', ...(A.efforts || {}) }

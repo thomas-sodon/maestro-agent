@@ -2563,10 +2563,27 @@ def test_config_from_env_dashboard_host_from_toml(
     mem_fs: dict[str, str],
 ) -> None:
     """Dashboard host is loaded from TOML only (no env var override)."""
-    toml = _BASE_TOML.replace('host = "0.0.0.0"', 'host = "127.0.0.1"')
+    assert 'host = "127.0.0.1"' in _BASE_TOML
+    toml = _BASE_TOML.replace('host = "127.0.0.1"', 'host = "0.0.0.0"', 1)
     mem_fs["/fake/toml/maestro.toml"] = toml
     config = Config.from_env(config_dir=Path("/fake/toml"))
-    assert config.dashboard_host == "127.0.0.1"
+    assert config.dashboard_host == "0.0.0.0"
+
+
+def test_dashboard_host_defaults_to_loopback_outside_production() -> None:
+    """Base ``maestro.toml`` binds loopback; only the production overlay widens it.
+
+    The container needs ``0.0.0.0`` so Docker's port forwarding reaches the
+    dashboard (``docker-compose.yml`` publishes it on the host's loopback only),
+    while a bare checkout must not expose an unauthenticated dashboard on every
+    interface. Reads the committed files through the runtime load path.
+    """
+    repo_root = Path(__file__).resolve().parent.parent
+    base = build_config_via_pydantic(repo_root, env_name=None)
+    prod = build_config_via_pydantic(repo_root, env_name="production")
+    assert Config().dashboard_host == "127.0.0.1"
+    assert base.dashboard_host == "127.0.0.1"
+    assert prod.dashboard_host == "0.0.0.0"
 
 
 # =====================================================================
