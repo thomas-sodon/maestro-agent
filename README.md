@@ -12,7 +12,7 @@ For the full architecture and its invariants, see [CLAUDE.md](CLAUDE.md); the mo
 
 - **Without an external objective, self-directed evolution collapses into self-reference.** Over its life Maestro's evolution loop produced 35 merged plans, 190 rejected and 655 obsolete. Most rejections and prunes were "already done", "duplicate" or "false premise": the planner kept proposing changes to its own machinery, and the human reviewer ended up as the grounding oracle.
 - **The revenue thesis was dropped.** The later charter had Maestro pay for itself by running revenue streams. That lineage (charter, net burn, scouting, income, intake, quotes, streams) was retired before any stream earned.
-- **Human-steered Claude Code workflows deliver the same pipeline.** The plan → impl → review → PR pipeline in [`.claude/workflows/`](.claude/workflows/), run by a person on demand, does the useful part of what the autonomous loop did, without the loop's cost and drift.
+- **Human-steered Claude Code workflows deliver the same pipeline.** The plan → impl → review → PR pipeline in [`.claude/workflows/`](.claude/workflows/) (extracted as [claude-code-pipeline](https://github.com/thomas-sodon/claude-code-pipeline)), run by a person on demand, does the useful part of what the autonomous loop did, without the loop's cost and drift.
 
 ## Architecture highlights
 
@@ -105,6 +105,12 @@ See `maestro.toml` for all settings (timeouts, loop intervals, limits). Per-envi
 
 - [`maestro_sdk/`](maestro_sdk/README.md) — a CLI-driving SDK with human-paced keystrokes.
 - [`maestro_review/`](maestro_review/CLAUDE.md) — the standalone AI code-review package.
+
+Extracted as standalone repositories:
+
+- [thomas-sodon/maestro-sdk](https://github.com/thomas-sodon/maestro-sdk) — `maestro_sdk` on its own, with CI.
+- [thomas-sodon/maestro-review](https://github.com/thomas-sodon/maestro-review) — `maestro_review` in a src layout, plus a reusable GitHub Action.
+- [thomas-sodon/claude-code-pipeline](https://github.com/thomas-sodon/claude-code-pipeline) — the `.claude/workflows/` pipeline and its commands, made project-agnostic.
 
 ## Web Dashboard
 
