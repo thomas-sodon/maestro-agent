@@ -25,7 +25,7 @@ export const meta = {
 //   ship?: boolean             default true; false = build only: commit, merge check, push the branch, open no PR
 //   ship_only?: boolean        skip planning/building: open (or ready `existing_pr`) a PR for `branch`, then monitor
 //   existing_pr?: number       ship-only: update + ready this PR instead of creating one
-//   predecessor_prs?: number[] PRs that must read MERGED before a PR is opened or readied (Mergify merges any ready PR)
+//   predecessor_prs?: number[] PRs that must read MERGED before a PR is opened or readied (the original repo auto-merged any ready PR; if yours does, this applies)
 //   title?: string, pr_note?: string     PR title / extra body text when opening; closing keywords in pr_note are the PR's only ones
 //   gate?: string              gate semaphore wrapper (default ./scripts/gate-slot.sh; a host may require its own)
 //   commit_trailers?: string[] lines the workflow's own commits end with (default: the create-pr skill's trailer)
@@ -50,7 +50,7 @@ const DIR = A.dir || ''
 const PLANNER = A.planner || 'plan'
 const BASES = (A.bases || []).filter(b => b && b !== 'main')
 const PREDS = (A.predecessor_prs || []).map(Number)
-// A stacked branch carries unmerged base commits; a ready PR to main would let Mergify merge them early.
+// A stacked branch carries unmerged base commits; where ready PRs auto-merge (as in the original repo), a ready PR to main would merge them early.
 if (BASES.length && !A.branch) throw new Error('args.bases needs args.branch (the stacked branch to build)')
 if (BASES.length && !BUILD_ONLY && !PREDS.length) throw new Error('a stacked run that opens or readies a PR needs args.predecessor_prs (or ship: false to build only)')
 const GATE = A.gate || './scripts/gate-slot.sh'

@@ -1,5 +1,7 @@
 # Burn-rate baseline (proposal 084, Phase 1)
 
+> **Figures redacted.** Dollar figures tied to the operator's billing were removed and are shown as `$—` / `€—`.
+
 **Captured:** 2026-06-23 (production instance) · **Baseline note created:** 2026-06-20
 
 This is the burn-rate reference for [proposal 084](../proposals/core/084-code-indexing-retrieval-tooling-burn-rate.md)

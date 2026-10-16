@@ -3,10 +3,10 @@ description: >-
   Set up the single Python interpreter every CI job builds against, plus the uv
   installer every job's dependency step uses. This is the sole place the
   interpreter action, its version and the uv version are pinned, so a runtime
-  bump or a version move is one edit here rather than six copies drifting apart.
+  bump or a version move is one edit here rather than one copy per job drifting apart.
   Deliberately takes no inputs: an overridable version would let a caller
-  re-introduce the duplication this composite exists to remove, and all six jobs
-  build against the same interpreter.
+  re-introduce the duplication this composite exists to remove, and every job
+  builds against the same interpreter.
 runs:
   using: "composite"
   steps:

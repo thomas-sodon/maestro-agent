@@ -21,7 +21,7 @@ from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-DEFAULT_DATA_DIRS = ["/opt/maestro/data", "data"]
+DEFAULT_DATA_DIRS = ["/home/maestro/maestro/data", "data"]
 
 
 def ts_prefilter(field: str) -> re.Pattern[str]:
@@ -261,7 +261,7 @@ def main() -> int:
     cutoff = None if span is None else now - span
     hours = span.total_seconds() / 3600 if span else None
 
-    print(f"# WTF has Maestro been doing — window: {args.window} (data: {data})")
+    print(f"# What has Maestro been doing — window: {args.window} (data: {data})")
 
     # --- Is it even alive -------------------------------------------------
     section("Pulse")

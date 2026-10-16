@@ -40,7 +40,7 @@ Only secrets remain as environment variables. All configuration values have move
 | `GITHUB_TOKEN` | GitHub PAT (`contents:write`, `pull_requests:write`, `issues:write`, `repo` — see [Publication Track Deployment Prerequisites](#publication-track-deployment-prerequisites)) | Yes |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token for notifications | No (warn) |
 | `TELEGRAM_CHAT_ID` | Telegram chat ID for notifications | No (warn) |
-| `MAESTRO_DASHBOARD_TOKEN` | Bearer token for dashboard auth | No (warn) |
+| `MAESTRO_DASHBOARD_TOKEN` | Bearer token for dashboard auth | Set it before binding to a non-loopback host (warns if unset there) |
 | `MAESTRO_EMAIL_ADDRESS` | Email sender address (e.g. `operator@example.com`) | No |
 | `MAESTRO_EMAIL_PASSWORD` | Email account password or app password | No |
 | `MAESTRO_EMAIL_THOMAS` | Thomas's email address for direct communication | No |
@@ -295,7 +295,7 @@ The deploy clone is the host-side checkout the agent cannot write; every later h
 
 ## HTTPS / Reverse Proxy
 
-External access to the dashboard is via `https://maestro.example.com` through an nginx reverse proxy with a Cloudflare origin SSL certificate. The nginx config lives in `nginx/maestro.conf` (symlinked on the server to `/etc/nginx/sites-enabled/`). The dashboard container binds to `127.0.0.1:8420` only — not exposed externally.
+External access to the dashboard is via `https://maestro.example.com` through an nginx reverse proxy with a Cloudflare origin SSL certificate. The nginx config lives in `nginx/maestro.conf` (symlinked on the server to `/etc/nginx/sites-enabled/`). Base `maestro.toml` binds the dashboard to `127.0.0.1`. Inside the container, `maestro.production.toml` sets `[dashboard] host = "0.0.0.0"` so Docker's port forwarding can reach it, and `docker-compose.yml` publishes that port on the host's `127.0.0.1:8420` only, so it is not exposed externally except through nginx. A container run under any other `MAESTRO_ENV` needs the same `[dashboard] host = "0.0.0.0"` key in its overlay (for example a gitignored `maestro.local.toml`); on the base default the dashboard is unreachable through the published port while its in-container healthcheck still passes.
 
 Traffic flow: Client → Cloudflare edge → nginx (port 443, origin cert) → localhost:8420 (dashboard)
 
@@ -405,9 +405,10 @@ maestro loop --max-iters 1
 - Optionally rsyncs to a Hetzner Storage Box if `HETZNER_STORAGE_BOX` is set
 
 ```bash
-# Cron setup (on the host, as the user that owns the repo clone).
-# Runs from the deploy directory so that the default MEMORY_DIR=$(pwd)/data resolves correctly.
-0 * * * * cd /path/to/maestro && ./scripts/backup-maestro.sh >> /var/log/maestro-backup.log 2>&1
+# Cron setup (on the host, as the user that owns the repo clone; see vps-setup.md §9).
+# Runs from the checkout so that the default MEMORY_DIR=$(pwd)/data resolves correctly,
+# and logs inside it: /var/log/ is root-owned and not writable by that user.
+0 * * * * cd /home/maestro/maestro && mkdir -p /home/maestro/maestro/logs && scripts/backup-maestro.sh >> /home/maestro/maestro/logs/backup.log 2>&1
 ```
 
 ## Quarantining Pre-Fence Test Telemetry

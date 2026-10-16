@@ -5,22 +5,26 @@
 # not a [Service] merge over a vendored base — so it carries [Unit]/[Service]/
 # [Install] sections of its own and lives in a non-`.d` subdirectory.
 #
-# Operator: adjust User=, WorkingDirectory=, and ExecStart= to the deploy user
-# and repo-clone path on your host. The script defaults its deploy directory to
-# ${DEPLOY_DIR:-$HOME/maestro}; set Environment=DEPLOY_DIR=/path/to/clone here if
-# the clone lives elsewhere than the service user's $HOME/maestro.
+# The values below match docs/vps-setup.md: the maestro user's checkout at
+# /home/maestro/maestro. Operator: adjust User=, WorkingDirectory=, and ExecStart=
+# if your deploy user or repo-clone path differ. The script defaults its deploy
+# directory to ${DEPLOY_DIR:-$HOME/maestro}; set Environment=DEPLOY_DIR=/path/to/clone
+# here if the clone lives elsewhere than the service user's $HOME/maestro.
+# User=maestro runs the agent from the agent-writable checkout, which is not
+# hardened (see the Known limitation in docs/vps-setup.md); a hardened setup
+# sets User= to a separate deploy user that owns its own clone.
 
 [Unit]
 Description=Maestro host-local pull-based deploy agent
-Documentation=file:///home/operator/maestro/deploy/systemd/README.md
+Documentation=file:///home/maestro/maestro/deploy/systemd/README.md
 After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=devshell
-WorkingDirectory=/home/operator/maestro
-ExecStart=/home/operator/maestro/scripts/deploy-agent.sh
+User=maestro
+WorkingDirectory=/home/maestro/maestro
+ExecStart=/home/maestro/maestro/scripts/deploy-agent.sh
 
 [Install]
 WantedBy=multi-user.target

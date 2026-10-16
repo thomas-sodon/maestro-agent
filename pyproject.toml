@@ -1,8 +1,10 @@
 [project]
 name = "maestro"
 version = "0.1.0"
-description = "Self-sustaining autonomous agent that runs revenue streams to pay for its own hosting and tokens"
+description = "Archived experiment: an autonomous agent on the Claude Agent SDK that proposes changes to its own code under human approval"
 requires-python = ">=3.14"
+license = "MIT"
+authors = [{ name = "Thomas Sodon" }]
 dependencies = [
     "claude-agent-sdk>=0.2.165",
     "mcp>=2.3.0,<3",
@@ -50,6 +52,9 @@ email = [
 
 [project.scripts]
 maestro = "maestro.cli:main"
+
+[project.urls]
+Repository = "https://github.com/thomas-sodon/maestro-agent"
 
 [build-system]
 requires = ["setuptools>=84.0.0"]

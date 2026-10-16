@@ -1,6 +1,6 @@
 Search the Maestro project for documentation/code drift and fix what is safely fixable.
 
-This command targets a fixed set of drift categories where CLAUDE.md, the docs, the TOML config, and the code are expected to agree. It does not attempt open-ended "code review" — that is what `/review-changes` and `/review-pr` are for.
+This command targets a fixed set of drift categories where CLAUDE.md, the docs, the TOML config, and the code are expected to agree. It does not attempt open-ended "code review" — that is what `/review-changes` is for.
 
 `$ARGUMENTS` selects scope:
 - *(empty)* — run all categories below.

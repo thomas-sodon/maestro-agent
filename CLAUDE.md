@@ -14,7 +14,7 @@ Quick-start: [README.md](README.md); CLI usage: [docs/cli.md](docs/cli.md); modu
 - **Surfaces** — `maestro/{dashboard/,notifications/,email,email_tools,telegram_tools,plan_decision,messaging,issues,crash}.py`.
 - **Infra** — `maestro/{config,toml_config,migration,fileutil,search,types,cost_tracking,task_cost_gate,remediation_tracker,escalation_bridge,contributions,diagnostics,health_check,stats,audit_checks,gate_check,red_root,deed_ledger,logs,cli}.py`.
 - **Code review** — separate `maestro_review/` package; see [`maestro_review/CLAUDE.md`](maestro_review/CLAUDE.md).
-- **Human-paced CLI SDK** — separate `maestro_sdk/` package (CLI-driving SDK with paced keystrokes, distinct from `maestro/sdk.py`); see [`maestro_sdk/README.md`](maestro_sdk/README.md).
+- **Paced CLI SDK** — separate `maestro_sdk/` package (CLI-driving SDK with paced keystrokes, distinct from `maestro/sdk.py`); see [`maestro_sdk/README.md`](maestro_sdk/README.md).
 
 ### Objective
 
@@ -197,4 +197,4 @@ python3.14 -m ruff check maestro_review/ tests/test_maestro_review/ && python3.1
 
 **While changing:** new functionality must include tests (bugs need a failing test first, using `mem_fs` and mocked externals). Main-phase SDK calls must be session-attached. Keep the journal honest — evolution notes capture *why*, not just what.
 
-**Before committing:** self-review every modified file for leftover debug code, missing error handling, inconsistent naming, and dead code. `ruff check`, `mypy`, and `pytest` must be green (coverage = 100%, plus browser tests); the Stop hook enforces this. Update CLAUDE.md *only* if an invariant changed — constants, prose, and incident history belong in code or `docs/`. The commit message explains the why, not just "fix tests".
+**Before committing:** self-review every modified file for leftover debug code, missing error handling, inconsistent naming, and dead code. `ruff check`, `mypy`, and `pytest` must be green (coverage = 100%, plus browser tests); CI enforces this, and `.claude/quality-gate-hook.sh` is an opt-in Stop hook you can register in `.claude/settings.local.json`. Update CLAUDE.md *only* if an invariant changed — constants, prose, and incident history belong in code or `docs/`. The commit message explains the why, not just "fix tests".

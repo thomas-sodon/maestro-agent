@@ -83,7 +83,7 @@ Lives in `maestro/dashboard/security_headers.py`. Gated by `[dashboard] security
 
 `script-src 'self'` is strict (blocks the real XSS vector). `style-src 'self' 'unsafe-inline'` is a deliberate compromise to keep existing inline `style="..."` attributes and `index.js`'s `.style.cssText = …` toast helper working.
 
-HSTS stays at nginx (`nginx/maestro.conf:32`) — not duplicated at the app layer.
+HSTS stays at nginx (the `Strict-Transport-Security` `add_header` in the 443 `server` block of `nginx/maestro.conf`) — not duplicated at the app layer.
 
 ## Static Asset Extraction
 
@@ -114,10 +114,15 @@ Narrowing the handler is not an improvement to chase: the contract genuinely cov
 
 Response schemas live in `maestro/dashboard/public_schemas.py` as TypedDicts. `public_identity()` constructs a `PublicIdentityResponse`, and a test asserts `set(handler.keys()) == set(TypedDict.__annotations__)` so adding a new key without widening the schema fails the test.
 
+## Bind Address
+
+`[dashboard] host` defaults to `127.0.0.1`, so a bare checkout serves the dashboard on loopback only. Set `MAESTRO_DASHBOARD_TOKEN` before binding to a non-loopback host: without a token every endpoint is unauthenticated, and `create_app` logs a warning when the host is anything other than `127.0.0.1`. The production overlay binds `0.0.0.0` inside the container because Docker's port forwarding arrives on the container's network interface; `docker-compose.yml` publishes the port on the host's `127.0.0.1` only, behind nginx (see [deployment.md](deployment.md#https--reverse-proxy)). A container run under any other `MAESTRO_ENV` needs the same `host = "0.0.0.0"` key in its own overlay, such as a gitignored `maestro.local.toml`.
+
 ## Tuning
 
 | Key | Default | Purpose |
 |---|---|---|
+| `[dashboard] host` | `127.0.0.1` | Bind address; production binds `0.0.0.0` inside the container |
 | `[dashboard] public_api_rate_limit_per_minute` | 60/min | Sliding-window limiter ceiling |
 | `[dashboard] public_api_cache_max_age_seconds` | 30s | `max-age` / `s-maxage`; SWR is `2× max-age` |
 | `[dashboard] security_headers_enabled` | `true` | Master gate for `SecurityHeadersMiddleware` |

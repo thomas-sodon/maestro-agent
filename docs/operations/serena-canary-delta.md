@@ -1,5 +1,7 @@
 # Serena symbol-retrieval canary delta (proposal 084, Phase 3)
 
+> **Figures redacted.** Dollar figures tied to the operator's billing were removed and are shown as `$—` / `€—`.
+
 How to measure whether the Serena symbol-retrieval MCP server actually lowers
 burn rate on implementation-heavy work, by comparing the **with-Serena** window
 against the Phase 1 [burn-rate baseline](burn-rate-baseline.md). This is the
