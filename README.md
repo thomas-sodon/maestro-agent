@@ -1,12 +1,21 @@
 # Maestro
 
+[![Quality Gates](https://github.com/thomas-sodon/maestro-agent/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/thomas-sodon/maestro-agent/actions/workflows/quality-gates.yml)
+
+> **For clients: what this demonstrates**
+> - A self-modifying agent loop on the Claude Agent SDK where every self-change waits for human approval, with a `PreToolUse` action gate on every Bash call during task runs and plan implementation.
+> - CI quality gates enforcing 100% test coverage, plus structural AST guards.
+> - Reusable parts extracted into standalone repos: [maestro-review](https://github.com/thomas-sodon/maestro-review) (AI PR review) and [claude-code-pipeline](https://github.com/thomas-sodon/claude-code-pipeline) (plan → PR workflows).
+
+<!-- demo screenshot goes here -->
+
 > **Archived experiment.** Maestro is no longer developed. The code, docs and proposals are kept as a record of what was tried and what was learned. Issue and PR numbers (`#NNNN`) cited in code, docs and proposals refer to the original private development repository, whose history was squashed for this release, so they do not resolve here.
 
 ## What Maestro is
 
 Maestro is an autonomous agent built on the Claude Agent SDK. It runs an **act → reflect → dream → evolve** loop: it executes tasks and tends its own pull requests, reflects on its own record, dreams (a zero-cost housekeeping pass that archives old state and refreshes the cost report), and proposes changes to its own code. Every self-change goes through human approval (dashboard or Telegram) before it lands. It keeps a journal of its own inner thought and a self-model that is injected into every call.
 
-**At a glance:** about 141,000 lines of Python in `maestro/` across 162 modules, 523 test modules under `tests/`, a 100% coverage gate in CI, and 35 merged evolution plans against 190 rejected and 655 obsolete.
+**At a glance:** a 100% coverage gate in CI, and 35 merged evolution plans against 190 rejected and 655 obsolete.
 
 For the full architecture, start with [docs/loop-lifecycle.md](docs/loop-lifecycle.md) and [docs/self-evolution.md](docs/self-evolution.md); [CLAUDE.md](CLAUDE.md) is the dense, agent-facing list of invariants, and the module reference is [docs/modules.md](docs/modules.md).
 
