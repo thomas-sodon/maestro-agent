@@ -138,6 +138,13 @@ def _load_workflows() -> dict[str, dict[str, Any]]:
     return workflows
 
 
+#: The one ``runs-on`` expression understood: fork pull requests take the first
+#: label and everything else the second. Both are checked against the manifest.
+_FORK_ROUTED_RUNS_ON = re.compile(
+    r"\$\{\{ github\.event\.pull_request\.head\.repo\.fork && '([^']+)' \|\| '([^']+)' \}\}"
+)
+
+
 def _runs_on_labels(workflows: dict[str, dict[str, Any]]) -> list[tuple[str, str, str]]:
     """Return every ``(workflow, job, label)`` triple declared across ``workflows``.
 
@@ -158,7 +165,8 @@ def _runs_on_labels(workflows: dict[str, dict[str, Any]]) -> list[tuple[str, str
                 continue
             runs_on = job["runs-on"]
             if isinstance(runs_on, str):
-                labels = [runs_on]
+                fork_route = _FORK_ROUTED_RUNS_ON.fullmatch(runs_on)
+                labels = list(fork_route.groups()) if fork_route else [runs_on]
             elif isinstance(runs_on, list) and all(isinstance(item, str) for item in runs_on):
                 labels = list(runs_on)
             else:

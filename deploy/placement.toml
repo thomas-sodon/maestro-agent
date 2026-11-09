@@ -63,6 +63,13 @@ fresh VM. Holds no class other than `bursty-batch`, which is the point: CI's \
 spiky all-cores draw has no interactive or steady-autonomous neighbour to \
 starve."""
 
+[[tier]]
+name = "metronome-ci"
+description = """
+The dedicated `metronome` CI host (a separate VPS). Runs ephemeral, \
+containerised self-hosted runners — one job per fresh container, destroyed \
+after the job — and nothing else. Holds no class other than `bursty-batch`."""
+
 # --- Interactive ------------------------------------------------------------
 
 [[workload]]
@@ -101,6 +108,13 @@ class = "bursty-batch"
 tier = "github-hosted"
 kind = "managed"
 runner_label = "ubuntu-latest"
+
+[[workload]]
+name = "metronome-ci-runners"
+class = "bursty-batch"
+tier = "metronome-ci"
+kind = "container"
+runner_label = "metronome"
 
 # --- Incidental -------------------------------------------------------------
 
